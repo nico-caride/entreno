@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Entreno</title>
+  <meta name="theme-color" content="#0e0f12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Entreno">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="view"></main>
+
+  <div id="timer" class="timer" hidden>
+    <div class="timer-row">
+      <div>
+        <p class="timer-lbl" id="timer-lbl">Descanso</p>
+        <p class="timer-t" id="timer-t">0:00</p>
+      </div>
+      <div class="timer-btns">
+        <button type="button" data-timer="mas">+15 s</button>
+        <button type="button" data-timer="fin">Listo</button>
+      </div>
+    </div>
+    <div class="timer-bar"><span id="timer-bar"></span></div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <nav class="nav">
+    <button type="button" data-tab="hoy" class="on">
+      <svg viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>Hoy</button>
+    <button type="button" data-tab="semana">
+      <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Semana</button>
+    <button type="button" data-tab="nutri">
+      <svg viewBox="0 0 24 24"><path d="M12 21c-4.5 0-7.5-3.5-7.5-8S7.5 6 12 8c4.5-2 7.5 .5 7.5 5s-3 8-7.5 8z"/><path d="M12 8c0-2.5 1.5-4.5 3.5-5"/></svg>Nutrición</button>
+    <button type="button" data-tab="progreso">
+      <svg viewBox="0 0 24 24"><path d="M3.5 19.5h17M5.5 15l4.5-5 3.5 3.5 6-7"/></svg>Progreso</button>
+  </nav>
+
+  <script src="plan.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

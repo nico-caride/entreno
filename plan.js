@@ -277,4 +277,120 @@ window.PLAN = {
       'En la pileta, nunca entrenar apnea solo.',
     ],
   },
+  // ------------------------------------------------------------
+  //  TÉCNICA — se ve al tocar el nombre de cada ejercicio.
+  //  pasos: claves cortas · error: error típico · video: qué buscar en YouTube
+  // ------------------------------------------------------------
+  tecnica: {
+    dominadas: {
+      pasos: ['Agarre prono apenas más ancho que los hombros, brazos bien estirados abajo.', 'Arrancá bajando las escápulas y llevá el pecho hacia la barra hasta pasar el mentón.', 'Bajá controlado (2 s) hasta estirar del todo.'],
+      error: 'Balancearte o cortar el recorrido a la mitad.', video: 'dominadas técnica correcta',
+    },
+    'press-incl': {
+      pasos: ['Banco a 30–45°, escápulas juntas y apoyadas.', 'Bajá las mancuernas al pecho alto, codos a ~45° del torso.', 'Empujá arriba y un poco hacia adentro, sin chocarlas.'],
+      error: 'Abrir los codos a 90°: carga el hombro.', video: 'press inclinado con mancuernas técnica',
+    },
+    'remo-pecho': {
+      pasos: ['Pecho apoyado en el banco inclinado, brazos colgando.', 'Llevá los codos hacia atrás y hacia la cadera, juntando las escápulas.', 'Pausa de 1 s arriba y bajá controlado.'],
+      error: 'Despegar el pecho del banco para tironear.', video: 'chest supported row dumbbell',
+    },
+    'press-militar': {
+      pasos: ['De pie, glúteos y abdomen apretados, mancuernas a la altura de los hombros.', 'Empujá vertical hasta estirar los brazos.', 'Bajá controlado hasta los hombros.'],
+      error: 'Arquear la zona lumbar para ayudarte.', video: 'press militar de pie con mancuernas técnica',
+    },
+    pullover: {
+      pasos: ['Polea alta, inclinado levemente hacia adelante, brazos casi rectos.', 'Llevá la barra en arco hasta los muslos usando los dorsales.', 'Volvé lento hasta sentir el estiramiento arriba.'],
+      error: 'Doblar los codos y convertirlo en un ejercicio de tríceps.', video: 'straight arm pulldown cable',
+    },
+    facepull: {
+      pasos: ['Polea a la altura de la cara, soga con agarre neutro.', 'Tirá hacia la frente separando las manos, codos altos.', 'Terminá con los puños al lado de las orejas, pausa de 1 s.'],
+      error: 'Inclinarte hacia atrás y tirar con la espalda baja.', video: 'face pull técnica',
+    },
+    'rot-ext': {
+      pasos: ['Banda a la altura del codo, codo pegado al costado y doblado a 90°.', 'Rotá el antebrazo hacia afuera sin despegar el codo.', 'Volvé lento.'],
+      error: 'Separar el codo del cuerpo.', video: 'rotación externa hombro banda',
+    },
+    'bici-tri': {
+      pasos: ['Bíceps: codos quietos al costado, subí sin balancear el torso.', 'Tríceps: codos fijos, extendé del todo.', 'Pasá de uno al otro sin pausa; el descanso va al final del par.'],
+      error: 'Usar impulso con la espalda.', video: 'superserie bíceps tríceps',
+    },
+    'popups-tec': {
+      pasos: ['Boca abajo, manos debajo del pecho, como en la tabla.', 'Empujá y llevá los pies debajo del cuerpo en un solo movimiento.', 'Caé en posición de surf: pie delantero entre las manos, rodillas flexionadas, mirada al frente.'],
+      error: 'Apoyar las rodillas o pararte en dos tiempos.', video: 'surf pop up técnica',
+    },
+    'popups-exp': {
+      pasos: ['Misma técnica que el pop-up técnico, a máxima velocidad.', 'Empujá explosivo: el pecho se despega y los pies caen juntos en posición.', 'Si una rep sale sucia, cortá la serie.'],
+      error: 'Sacrificar la técnica por velocidad.', video: 'explosive surf pop up drill',
+    },
+    saltos: {
+      pasos: ['A un paso del cajón, brazos atrás.', 'Balanceá los brazos y saltá explosivo; caé suave con las rodillas flexionadas.', 'Bajá caminando, no saltando. Cada salto, a fondo.'],
+      error: 'Usar un cajón tan alto que te obliga a caer en sentadilla profunda.', video: 'box jump técnica',
+    },
+    sentadilla: {
+      pasos: ['Barra sobre los trapecios (trasera) o adelante sobre los hombros (frontal); pies al ancho de los hombros.', 'Tomá aire, apretá el abdomen y bajá con las rodillas en la línea de los pies hasta por lo menos la paralela.', 'Subí empujando el piso, pecho arriba.'],
+      error: 'Rodillas hacia adentro o talones que se levantan.', video: 'sentadilla con barra técnica',
+    },
+    rumano: {
+      pasos: ['Barra en las manos, rodillas apenas flexionadas.', 'Llevá la cadera hacia atrás con la espalda neutra y la barra pegada a las piernas.', 'Bajá hasta sentir tensión en los isquios y subí apretando los glúteos.'],
+      error: 'Redondear la espalda o convertirlo en sentadilla.', video: 'peso muerto rumano técnica',
+    },
+    bulgara: {
+      pasos: ['Pie de atrás apoyado en un banco, el de adelante a un paso largo.', 'Bajá vertical hasta que la rodilla de atrás casi toque el piso.', 'Subí empujando con el talón de adelante.'],
+      error: 'Pie de adelante demasiado cerca del banco.', video: 'sentadilla búlgara técnica',
+    },
+    balon: {
+      pasos: ['De costado a la pared, a 1–2 m, balón a la altura de la cadera.', 'Cargá rotando hacia atrás y soltá girando primero la cadera, después el torso y los brazos.', 'Atrapá el rebote y repetí.'],
+      error: 'Tirar solo con los brazos, sin rotar la cadera.', video: 'rotational medicine ball throw',
+    },
+    pallof: {
+      pasos: ['De costado a la polea o la banda, agarre a la altura del pecho.', 'Estirá los brazos al frente sin dejar que el torso gire.', 'Pausa de 2 s y volvé.'],
+      error: 'Dejar que la cadera o el torso giren hacia la polea.', video: 'pallof press técnica',
+    },
+    banca: {
+      pasos: ['Ojos debajo de la barra, escápulas juntas y abajo, pies firmes en el piso.', 'Bajá la barra controlada hasta el esternón, codos a ~45–70°.', 'Empujá arriba y levemente hacia la cara.'],
+      error: 'Rebotar la barra en el pecho o despegar la cola del banco.', video: 'press banca técnica correcta',
+    },
+    'remo-una': {
+      pasos: ['Mano y rodilla apoyadas en el banco, espalda plana.', 'Llevá la mancuerna hacia la cadera, codo cerca del cuerpo.', 'Bajá hasta estirar el dorsal, sin rotar el torso.'],
+      error: 'Rotar el torso para subir más peso.', video: 'remo a una mano con mancuerna técnica',
+    },
+    fondos: {
+      pasos: ['Brazos estirados en las paralelas, hombros abajo.', 'Bajá con el torso levemente inclinado hasta que los hombros queden a la altura de los codos.', 'Subí hasta estirar los brazos.'],
+      error: 'Bajar de más con los hombros hacia adelante.', video: 'fondos en paralelas técnica',
+    },
+    jalon: {
+      pasos: ['Agarre neutro, pecho arriba, apenas inclinado hacia atrás.', 'Llevá la barra al pecho alto bajando los codos hacia las costillas.', 'Subí controlado hasta estirar.'],
+      error: 'Tirar con impulso hacia atrás.', video: 'jalón al pecho agarre neutro',
+    },
+    laterales: {
+      pasos: ['De pie, mancuernas al costado, codos apenas flexionados.', 'Subí hacia los costados hasta la altura de los hombros, guiando con los codos.', 'Bajá lento (2 s).'],
+      error: 'Subir con impulso o encogiendo los hombros.', video: 'elevaciones laterales técnica',
+    },
+    ytw: {
+      pasos: ['Boca abajo en banco inclinado, pulgares arriba, peso muy liviano o sin peso.', 'Y: brazos en diagonal arriba. T: al costado. W: codos flexionados hacia atrás, juntando las escápulas.', 'Pausa de 1–2 s en cada posición.'],
+      error: 'Usar mucho peso y encoger el cuello.', video: 'YTW incline bench',
+    },
+    core: {
+      pasos: ['Rueda: desde las rodillas, rodá adelante con la cola apretada y la lumbar firme, y volvé.', 'Plancha lateral: codo debajo del hombro, cuerpo en línea recta.', 'Hollow hold: lumbar pegada al piso, brazos y piernas estirados y despegados.'],
+      error: 'Arquear la zona lumbar.', video: 'hollow hold rueda abdominal plancha lateral',
+    },
+    'vie-popups': {
+      pasos: ['30 s de SkiErg a fondo.', 'Bajá a la colchoneta y hacé 3 pop-ups limpios.', '30 s de pausa y repetí.'],
+      error: 'Pop-ups desprolijos por el cansancio: mejor más lentos pero perfectos.', video: 'surf pop up',
+    },
+    'vie-surf': {
+      pasos: ['Boca abajo en banco inclinado, bandas enganchadas adelante.', 'Remá alternando brazos como en la tabla: entra la mano y tirás hasta la cadera.', 'Pecho arriba, mirada al frente, ritmo constante.'],
+      error: 'Bajar la cabeza y perder la extensión de la espalda.', video: 'surf paddle training resistance bands',
+    },
+    // movilidad
+    m1: { pasos: ['Sentado, una pierna adelante y otra al costado, las dos rodillas a 90°.', 'Torso erguido, inclinate un poco sobre la pierna de adelante.', 'Respirá lento y cambiá de lado.'], error: 'Encorvar la espalda.', video: 'cadera 90 90 movilidad' },
+    m2: { pasos: ['Rodilla de atrás contra la pared o el sofá, empeine arriba.', 'Pie de adelante firme; apretá el glúteo de la pierna de atrás.', 'Llevá la cadera adelante con el torso erguido.'], error: 'Arquear la lumbar en vez de apretar el glúteo.', video: 'couch stretch' },
+    m3: { pasos: ['Pie a unos centímetros de la pared.', 'Llevá la rodilla a tocar la pared sin despegar el talón.', 'Si toca fácil, alejá el pie.'], error: 'Levantar el talón.', video: 'knee to wall ankle mobility' },
+    m4: { pasos: ['Piernas bien abiertas.', 'Bajá hacia un lado flexionando esa rodilla; la otra pierna estirada con la punta arriba.', 'Pasá al otro lado sin pararte del todo.'], error: 'Que se levante el talón de la pierna flexionada.', video: 'sentadilla cosaca' },
+    m5: { pasos: ['Rolo debajo de la espalda alta (no de la lumbar), manos detrás de la cabeza.', 'Extendé hacia atrás sobre el rolo, costillas abajo.', 'Mové el rolo un poco y repetí.'], error: 'Extender desde la lumbar.', video: 'thoracic extension foam roller' },
+    m6: { pasos: ['De costado, rodillas flexionadas a 90°, brazos juntos adelante.', 'Abrí el brazo de arriba hacia el otro lado siguiéndolo con la mirada.', 'Rodillas juntas y apoyadas todo el tiempo.'], error: 'Separar las rodillas.', video: 'open book stretch' },
+    m7: { pasos: ['Antebrazo apoyado en el marco, codo a la altura del hombro.', 'Da un paso adelante hasta sentir el estiramiento en el pecho.', 'Hombro abajo, sin forzar.'], error: 'Encoger el hombro.', video: 'doorway pec stretch' },
+    m8: { pasos: ['Banda con agarre bien ancho, brazos estirados.', 'Pasala por arriba de la cabeza hasta atrás y volvé.', 'Si molesta, abrí más el agarre.'], error: 'Doblar los codos.', video: 'shoulder dislocates band' },
+    m9: { pasos: ['Boca abajo, manos debajo de los hombros.', 'Empujá y extendé la espalda, respirando profundo arriba.', 'Bajá y hacé un pop-up lento con 2 s de pausa abajo.'], error: 'Hombros encogidos hacia las orejas.', video: 'cobra stretch' },
+  },
 };

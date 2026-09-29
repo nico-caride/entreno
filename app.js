@@ -81,6 +81,13 @@ function armarSesion(d) {
 }
 
 const fmtDesc = (x) => x.descansoTxt || (!x.descanso ? '' : x.descanso < 120 ? `${x.descanso} s` : `${fmt(x.descanso / 60)} min`);
+const tecDe = (id) => (P.tecnica || {})[id] || (P.tecnica || {})[String(id).replace(/^mov-/, '')];
+function tecHTML(t) {
+  const q = encodeURIComponent(t.video || '');
+  return `<ol class="pasos">${t.pasos.map((p) => `<li>${esc(p)}</li>`).join('')}</ol>`
+    + (t.error ? `<p class="error">⚠︎ Error típico: ${esc(t.error)}</p>` : '')
+    + (t.video ? `<a class="video" href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">▶ Ver video</a>` : '');
+}
 const dosis = (x) => (x.texto || '{s} × {r}').replace('{s}', x.series).replace('{r}', x.reps ?? '');
 
 function ultimoPeso(id, antesDe) {
@@ -107,12 +114,20 @@ function card(x, dISO, soloVer) {
   const completo = !soloVer && Array.from({ length: n }).every((_, i) => done[i]);
   const desc = fmtDesc(x);
   const ult = x.sinPeso ? null : ultimoPeso(x.id, dISO);
+  const tec = tecDe(x.id);
 
   let h = `<article class="ej${completo ? ' ok' : ''}" data-id="${esc(x.id)}" data-rest="${x.descanso || 0}" data-n="${n}" data-nombre="${esc(x.nombre)}">
-    <div class="ej-top"><h3>${esc(x.nombre)}</h3><span class="dosis">${esc(dosis(x))}</span></div>`;
+    <div class="ej-top"><h3>${tec ? `<button type="button" class="nombre" aria-expanded="false">${esc(x.nombre)} <span class="info">ⓘ</span></button>` : esc(x.nombre)}</h3><span class="dosis">${esc(dosis(x))}</span></div>`;
   const meta = [desc && `⏱ ${esc(desc)}`, x.nota && esc(x.nota)].filter(Boolean).join(' · ');
   if (meta) h += `<p class="meta">${meta}</p>`;
-  if (x.lista) h += `<ul class="lista">${x.lista.map((m) => `<li>${esc(m.nombre)} <span>${esc(m.dosis)}</span></li>`).join('')}</ul>`;
+  if (tec) h += `<div class="tec" hidden>${tecHTML(tec)}</div>`;
+  if (x.lista) {
+    h += `<ul class="lista">${x.lista.map((m) => {
+      const t = tecDe(m.id);
+      return t ? `<li><details><summary>${esc(m.nombre)} <span class="info">ⓘ</span><span class="ds">${esc(m.dosis)}</span></summary><div class="tec">${tecHTML(t)}</div></details></li>`
+               : `<li><span>${esc(m.nombre)}</span> <span class="ds">${esc(m.dosis)}</span></li>`;
+    }).join('')}</ul>`;
+  }
 
   if (!x.sinPeso) {
     if (soloVer) {
@@ -484,6 +499,14 @@ document.addEventListener('click', (ev) => {
   if (!el) return;
 
   if (el.dataset.tab) return render(el.dataset.tab);
+
+  // técnica del ejercicio
+  if (el.classList.contains('nombre')) {
+    const tec = el.closest('.ej').querySelector(':scope > .tec');
+    tec.hidden = !tec.hidden;
+    el.setAttribute('aria-expanded', String(!tec.hidden));
+    return;
+  }
 
   if (el.dataset.timer === 'mas') { T.end += 15000; T.total += 15; return tick(); }
   if (el.dataset.timer === 'fin') { clearTimeout(T.finTimeout); return finTimer(false); }

@@ -79,8 +79,24 @@ small { color: var(--mut); font-size: .8rem; font-weight: 400; }
   text-align: right; max-width: 55%;
 }
 .lista { list-style: none; margin: 10px 0 0; padding: 0; }
-.lista li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: .95rem; }
-.lista li span { color: var(--mut); flex-shrink: 0; }
+.lista > li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: .95rem; }
+.lista > li span.ds { color: var(--mut); flex-shrink: 0; margin-left: auto; }
+.lista > li details { width: 100%; }
+.lista > li summary { display: flex; gap: 8px; align-items: baseline; list-style: none; cursor: pointer; }
+.lista > li summary::-webkit-details-marker { display: none; }
+.lista .tec { margin: 8px 0 4px; }
+
+/* técnica */
+.nombre { background: none; border: 0; padding: 0; text-align: left; font-weight: 700; font-size: inherit; line-height: inherit; }
+.info { color: var(--acc); font-size: .85em; font-weight: 400; }
+.tec { background: var(--card2); border-radius: 12px; padding: 10px 12px; margin-top: 10px; font-size: .92rem; }
+.pasos { margin: 0; padding-left: 20px; list-style: decimal; }
+.pasos li { margin: 4px 0; }
+.error { color: var(--warn); margin-top: 8px; }
+.video {
+  display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; padding: 0 14px;
+  border-radius: 10px; border: 1px solid var(--line); color: var(--txt); text-decoration: none; font-weight: 600;
+}
 
 /* peso */
 .peso { display: flex; gap: 10px; align-items: stretch; margin-top: 12px; }

@@ -14,6 +14,7 @@
 //    texto     (opcional) reemplaza "series × reps"; {s} = series, {r} = reps
 //    nota      (opcional) aclaración chica
 //    sinPeso   true si no hace falta anotar kilos
+//    piernas   true para que la progresión sugiera +5 kg (si no, +2,5 kg)
 // ============================================================
 
 window.PLAN = {
@@ -68,9 +69,9 @@ window.PLAN = {
       tipo: 'fuerza', movilidadEntrada: true,
       items: [
         { id: 'saltos', nombre: 'Saltos al cajón', series: 4, reps: '3', descanso: 90, nota: 'Siempre primero', sinPeso: true },
-        { id: 'sentadilla', nombre: 'Sentadilla trasera o frontal', series: 4, reps: '5–6', descanso: 150, descansoTxt: '2–3 min' },
-        { id: 'rumano', nombre: 'Peso muerto rumano', series: 3, reps: '8', descanso: 120 },
-        { id: 'bulgara', nombre: 'Sentadilla búlgara', series: 3, reps: '8 por pierna', descanso: 90 },
+        { id: 'sentadilla', piernas: true, nombre: 'Sentadilla trasera o frontal', series: 4, reps: '5–6', descanso: 150, descansoTxt: '2–3 min' },
+        { id: 'rumano', piernas: true, nombre: 'Peso muerto rumano', series: 3, reps: '8', descanso: 120 },
+        { id: 'bulgara', piernas: true, nombre: 'Sentadilla búlgara', series: 3, reps: '8 por pierna', descanso: 90 },
         { id: 'balon', nombre: 'Lanzamiento rotacional de balón medicinal a la pared', series: 3, reps: '6 por lado', descanso: 60 },
         { id: 'pallof', nombre: 'Pallof press', series: 3, reps: '10 por lado', descanso: 45 },
         { id: 'popups-exp', nombre: 'Pop-ups explosivos', series: 4, reps: '5', descanso: 60, sinPeso: true },

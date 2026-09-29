@@ -129,6 +129,19 @@ small { color: var(--mut); font-size: .8rem; font-weight: 400; }
 .set:active { transform: scale(.92); }
 .set.on { background: var(--ok); border-color: var(--ok); color: #06210f; }
 
+/* reps */
+.pick { margin-top: 12px; background: var(--card2); border-radius: 14px; padding: 10px 12px 12px; }
+.pick .meta { margin: 0 0 8px; }
+.chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.chip-rep {
+  min-height: 48px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--card); font-size: 1.1rem; font-weight: 700;
+}
+.chip-rep:active { background: var(--ok); color: #06210f; }
+.desmarcar { margin-top: 8px; min-height: 44px; width: 100%; border-radius: 12px; border: 1px solid var(--line); background: none; color: var(--mut); font-weight: 600; }
+.ult.sube { border: 1px solid var(--ok); border-style: solid; background: #13201a; color: var(--ok); }
+.ult.sube small { color: #8fd8ae; }
+
 /* ----- temporizador ----- */
 .timer {
   position: fixed; left: 12px; right: 12px; z-index: 20;
@@ -142,7 +155,8 @@ small { color: var(--mut); font-size: .8rem; font-weight: 400; }
 .timer-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .timer-lbl { font-size: .8rem; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48vw; }
 .timer-t { font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.05; }
-.timer-btns { display: flex; gap: 8px; }
+.timer-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.timer-btns button { white-space: nowrap; }
 .timer-btns button {
   min-height: 52px; padding: 0 14px; border-radius: 14px; border: 0;
   background: var(--card2); font-weight: 700;

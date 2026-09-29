@@ -99,6 +99,38 @@ function ultimoPeso(id, antesDe) {
   return null;
 }
 
+// ---------- progresión ----------
+const numerosReps = (x) => String(x.reps ?? '').match(/\d+/g);
+const topeReps = (x) => { const m = numerosReps(x); return m ? +m[m.length - 1] : null; };
+const usaReps = (x) => !x.sinPeso && !x.fijo && topeReps(x) != null;
+function rangoReps(x) {
+  const m = numerosReps(x);
+  const tope = +m[m.length - 1];
+  const lo = Math.max(1, Math.min(+m[0] - 1, tope - 3));
+  return Array.from({ length: tope + 2 - lo }, (_, k) => lo + k);
+}
+
+function ultimaSesion(id, antesDe) {
+  const fechas = Object.keys(DB.logs).filter((f) => f < antesDe).sort().reverse();
+  for (const f of fechas) {
+    const e = DB.logs[f]?.[id];
+    if (e && (e.w || (e.d || []).some(Boolean))) return { ...e, f };
+  }
+  return null;
+}
+
+// Si la última vez completaste el tope de reps en todas las series, sugiere subir.
+function sugerencia(x, dISO) {
+  if (!usaReps(x) || estado(dISO).descarga) return null;
+  const u = ultimaSesion(x.id, dISO);
+  const w = num(u?.w);
+  if (!u || w == null || !u.n || !u.t) return null;
+  const r = u.r || [];
+  const ok = Array.from({ length: u.n }).every((_, i) => u.d?.[i] && r[i] >= u.t);
+  if (!ok) return null;
+  return { w: fmt(w + (x.piernas ? 5 : 2.5)), antes: u.w };
+}
+
 function chipBloque(E) {
   if (E.fase === 'antes') return `Arranca el ${fechaCorta(P.bloques[0].desde)} · ${esc(E.b.etiqueta)}`;
   if (E.fase === 'despues') return 'Plan terminado 🎉';
@@ -116,7 +148,7 @@ function card(x, dISO, soloVer) {
   const ult = x.sinPeso ? null : ultimoPeso(x.id, dISO);
   const tec = tecDe(x.id);
 
-  let h = `<article class="ej${completo ? ' ok' : ''}" data-id="${esc(x.id)}" data-rest="${x.descanso || 0}" data-n="${n}" data-nombre="${esc(x.nombre)}">
+  let h = `<article class="ej${completo ? ' ok' : ''}" data-id="${esc(x.id)}" data-tope="${usaReps(x) ? topeReps(x) : ''}" data-rest="${x.descanso || 0}" data-n="${n}" data-nombre="${esc(x.nombre)}">
     <div class="ej-top"><h3>${tec ? `<button type="button" class="nombre" aria-expanded="false">${esc(x.nombre)} <span class="info">ⓘ</span></button>` : esc(x.nombre)}</h3><span class="dosis">${esc(dosis(x))}</span></div>`;
   const meta = [desc && `⏱ ${esc(desc)}`, x.nota && esc(x.nota)].filter(Boolean).join(' · ');
   if (meta) h += `<p class="meta">${meta}</p>`;
@@ -130,19 +162,30 @@ function card(x, dISO, soloVer) {
   }
 
   if (!x.sinPeso) {
+    const u = usaReps(x) ? ultimaSesion(x.id, dISO) : null;
+    const repsTxt = u?.r?.some((v) => v) ? ` · ${u.r.slice(0, u.n || u.r.length).map((v) => v || '–').join('-')} reps` : '';
+    const sug = soloVer ? null : sugerencia(x, dISO);
     if (soloVer) {
       if (ult) h += `<p class="meta">Última vez: <b>${esc(ult.w)} kg</b> (${fechaCorta(ult.f)})</p>`;
     } else {
+      let lado = '<span class="ult vacio">Sin registro previo</span>';
+      if (sug) lado = `<button type="button" class="ult sube" data-w="${esc(sug.w)}"><span>⬆︎ Subí a <b>${esc(sug.w)} kg</b></span><small>Antes ${esc(sug.antes)} kg · tocá para usar</small></button>`;
+      else if (ult) lado = `<button type="button" class="ult" data-w="${esc(ult.w)}"><span>Última: <b>${esc(ult.w)} kg</b></span><small>${fechaCorta(ult.f)}${ult.f === u?.f ? esc(repsTxt) : ''} · tocá para copiar</small></button>`;
       h += `<div class="peso">
-        <label class="kg-box"><input class="kg" type="text" inputmode="decimal" autocomplete="off" value="${esc(log.w || '')}" placeholder="${ult ? esc(ult.w) : '—'}" aria-label="Peso usado"><span>kg</span></label>
-        ${ult ? `<button type="button" class="ult" data-w="${esc(ult.w)}"><span>Última: <b>${esc(ult.w)} kg</b></span><small>${fechaCorta(ult.f)} · tocá para copiar</small></button>`
-              : '<span class="ult vacio">Sin registro previo</span>'}
+        <label class="kg-box"><input class="kg" type="text" inputmode="decimal" autocomplete="off" value="${esc(log.w || '')}" placeholder="${sug ? esc(sug.w) : ult ? esc(ult.w) : '—'}" aria-label="Peso usado"><span>kg</span></label>
+        ${lado}
       </div>`;
     }
   }
   if (!soloVer) {
+    const r = log.r || [];
     h += '<div class="sets">' + Array.from({ length: n }, (_, i) =>
-      `<button type="button" class="set${done[i] ? ' on' : ''}" data-i="${i}" aria-label="Serie ${i + 1}">${done[i] ? '✓' : i + 1}</button>`).join('') + '</div>';
+      `<button type="button" class="set${done[i] ? ' on' : ''}" data-i="${i}" aria-label="Serie ${i + 1}">${done[i] ? (r[i] || '✓') : i + 1}</button>`).join('') + '</div>';
+    if (usaReps(x)) {
+      h += `<div class="pick" hidden><p class="meta">¿Cuántas reps en la serie <b class="pick-n"></b>?</p>
+        <div class="chips">${rangoReps(x).map((v) => `<button type="button" class="chip-rep" data-rep="${v}">${v}</button>`).join('')}</div>
+        <button type="button" class="desmarcar">Desmarcar serie</button></div>`;
+    }
   }
   return h + '</article>';
 }
@@ -494,6 +537,36 @@ function importar(file) {
 }
 
 // ---------- eventos ----------
+function logDe(el) {
+  const art = el.closest('.ej');
+  const log = (DB.logs[iso(hoy())] ||= {});
+  const e = (log[art.dataset.id] ||= { w: '', d: [] });
+  e.n = +art.dataset.n;
+  if (art.dataset.tope) e.t = +art.dataset.tope;
+  return { art, e };
+}
+function pintarSet(art, e, i) {
+  const b = art.querySelector(`.set[data-i="${i}"]`);
+  b.classList.toggle('on', !!e.d[i]);
+  b.textContent = e.d[i] ? (e.r?.[i] || '✓') : i + 1;
+  const n = +art.dataset.n;
+  art.classList.toggle('ok', Array.from({ length: n }).every((_, k) => e.d[k]));
+}
+function abrirPick(pick, i, conDesmarcar) {
+  pick.dataset.i = i;
+  pick.querySelector('.pick-n').textContent = i + 1;
+  pick.querySelector('.desmarcar').hidden = !conDesmarcar;
+  pick.hidden = false;
+}
+function desmarcar(art, e, i) {
+  e.d[i] = false;
+  if (e.r) e.r[i] = null;
+  save();
+  pintarSet(art, e, i);
+  const pick = art.querySelector('.pick');
+  if (pick) pick.hidden = true;
+}
+
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest('button, summary');
   if (!el) return;
@@ -514,21 +587,38 @@ document.addEventListener('click', (ev) => {
   // tildar serie
   if (el.classList.contains('set')) {
     unlockAudio();
-    const art = el.closest('.ej');
-    const dISO = iso(hoy());
-    const log = (DB.logs[dISO] ||= {});
-    const e = (log[art.dataset.id] ||= { w: '', d: [] });
+    const { art, e } = logDe(el);
     const i = +el.dataset.i;
-    e.d[i] = !e.d[i];
-    save();
-    el.classList.toggle('on', e.d[i]);
-    el.textContent = e.d[i] ? '✓' : i + 1;
-    const n = +art.dataset.n;
-    const completo = Array.from({ length: n }).every((_, k) => e.d[k]);
-    art.classList.toggle('ok', completo);
-    const rest = +art.dataset.rest;
-    if (e.d[i] && rest) startTimer(rest, art.dataset.nombre);
+    const pick = art.querySelector('.pick');
+    const abierto = pick && !pick.hidden && +pick.dataset.i === i;
+    if (!e.d[i]) {
+      e.d[i] = true;
+      save();
+      pintarSet(art, e, i);
+      const rest = +art.dataset.rest;
+      if (rest) startTimer(rest, art.dataset.nombre);
+      if (pick) abrirPick(pick, i, false);
+    } else if (pick && !abierto) {
+      abrirPick(pick, i, true); // ya tildada: permite corregir reps o desmarcar
+    } else {
+      desmarcar(art, e, i);
+    }
     try { navigator.vibrate && navigator.vibrate(15); } catch (x) { /* nada */ }
+    return;
+  }
+  if (el.classList.contains('chip-rep')) {
+    const { art, e } = logDe(el);
+    const pick = art.querySelector('.pick');
+    const i = +pick.dataset.i;
+    (e.r ||= [])[i] = +el.dataset.rep;
+    save();
+    pintarSet(art, e, i);
+    pick.hidden = true;
+    return;
+  }
+  if (el.classList.contains('desmarcar')) {
+    const { art, e } = logDe(el);
+    desmarcar(art, e, +art.querySelector('.pick').dataset.i);
     return;
   }
 

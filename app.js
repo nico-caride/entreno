@@ -12,7 +12,7 @@ const fmt = (n, d = 1) => (n == null ? '—' : n.toLocaleString('es-AR', { maxim
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // ---------- datos (localStorage) ----------
-const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {} });
+const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {} });
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY));
@@ -52,10 +52,70 @@ function estado(dISO) {
   return { b, fase, descarga, semana: Math.floor(dias / 7) + 1 };
 }
 
+// ---------- agenda: qué sesión toca cada día (con cambios) ----------
+const lunesDe = (d) => addDays(d, -((d.getDay() + 6) % 7));
+const diasSemana = (d) => { const l = lunesDe(d); return ORDEN.map((_, k) => addDays(l, k)); };
+const claveDefecto = (d) => P.semana[d.getDay()];
+const claveDe = (d) => DB.agenda[iso(d)] || claveDefecto(d);
+const titulo = (k) => P.sesiones[k].titulo;
+const prio = (k) => P.sesiones[k].prioridad || 0;
+const pesada = (d) => !!P.sesiones[claveDe(d)].pesada;
+const diaNombre = (d) => DIAS[d.getDay()].toLowerCase();
+const hechoEl = (d) => Object.values(DB.logs[iso(d)] || {}).some((e) => (e.d || []).some(Boolean));
+
+// Hoy hice "nueva" en vez de lo planeado: intercambia con el día de "nueva" si viene
+// más adelante en la semana; si no, la sesión perdida pisa un día de menor prioridad.
+function cambiarDia(d, nueva) {
+  const dISO = iso(d);
+  const vieja = claveDe(d);
+  if (nueva === vieja) return '';
+  const futuros = diasSemana(d).filter((f) => iso(f) > dISO);
+  DB.agenda[dISO] = nueva;
+  let msg = '';
+  const slot = futuros.find((f) => claveDe(f) === nueva);
+  if (slot) {
+    DB.agenda[iso(slot)] = vieja;
+    msg = `${titulo(vieja)} pasó al ${diaNombre(slot)}.`;
+  } else if (prio(vieja) > 0) {
+    const libre = futuros
+      .filter((f) => prio(claveDe(f)) > 0 && prio(claveDe(f)) < prio(vieja))
+      .sort((a, b) => prio(claveDe(a)) - prio(claveDe(b)))[0];
+    if (libre) {
+      const pisada = claveDe(libre);
+      DB.agenda[iso(libre)] = vieja;
+      msg = `${titulo(vieja)} pasó al ${diaNombre(libre)}, en lugar de ${titulo(pisada)}.`;
+    } else {
+      msg = `${titulo(vieja)} queda salteada esta semana.`;
+    }
+  }
+  save();
+  return msg;
+}
+function moverDia(a, b) {
+  const ka = claveDe(a);
+  const kb = claveDe(b);
+  DB.agenda[iso(a)] = kb;
+  DB.agenda[iso(b)] = ka;
+  save();
+}
+function restaurarSemana(d) {
+  diasSemana(d).forEach((f) => { delete DB.agenda[iso(f)]; });
+  save();
+}
+function avisoSeguidos(d) {
+  if (!pesada(d)) return '';
+  const man = addDays(d, 1);
+  const ayer = addDays(d, -1);
+  if (pesada(man)) return `Mañana también es día fuerte (${titulo(claveDe(man))}).`;
+  if (pesada(ayer)) return `Ayer también fue día fuerte (${titulo(claveDe(ayer))}).`;
+  return '';
+}
+
 function armarSesion(d) {
   const dISO = iso(d);
   const E = estado(dISO);
-  const s = P.sesiones[P.semana[d.getDay()]];
+  const clave = claveDe(d);
+  const s = P.sesiones[clave];
   const mitad = E.descarga || (E.fase === 'plan' && E.b.volumenBajo);
   const items = [];
   if (s.movilidadEntrada) {
@@ -77,7 +137,7 @@ function armarSesion(d) {
     if (mitad && !x.fijo && x.series > 1) x.series = Math.ceil(x.series / 2);
     items.push(x);
   }
-  return { s, E, items, dISO };
+  return { s, E, items, dISO, clave };
 }
 
 const fmtDesc = (x) => x.descansoTxt || (!x.descanso ? '' : x.descanso < 120 ? `${x.descanso} s` : `${fmt(x.descanso / 60)} min`);
@@ -193,16 +253,25 @@ function card(x, dISO, soloVer) {
 // ---------- pantalla: HOY ----------
 function vistaHoy() {
   const d = hoy();
-  const { s, E, items, dISO } = armarSesion(d);
+  const { s, E, items, dISO, clave } = armarSesion(d);
+  const movida = clave !== claveDefecto(d);
   let h = `<header class="top">
     <p class="fecha">${esc(cap(fechaLarga(d)))}</p>
     <h1>${esc(s.titulo)}</h1>
     <p class="sub">${esc([s.sub, s.duracion].filter(Boolean).join(' · '))}</p>
     <p class="chip">${chipBloque(E)}</p>
-  </header>`;
+  </header>
+  <button type="button" class="cambiar" data-accion="cambiar">↻ Hoy hice otra cosa${movida ? ` <small>(estaba ${esc(titulo(claveDefecto(d)))})</small>` : ''}</button>
+  <div class="opciones" id="opciones" hidden>
+    <p class="meta">¿Qué hiciste o vas a hacer hoy? La semana se reacomoda sola.</p>
+    ${Object.keys(P.sesiones).filter((k) => k !== clave).map((k) => `<button type="button" class="btn" data-sesion="${k}">${esc(titulo(k))}</button>`).join('')}
+  </div>`;
+
+  const seguidos = avisoSeguidos(d);
+  if (seguidos) h += `<div class="aviso">⚠︎ ${esc(seguidos)} Si llegás cargado o con mareo, cambiá uno por zona 2.</div>`;
 
   if (E.fase === 'antes') h += `<div class="aviso">El plan arranca el ${fechaCorta(P.bloques[0].desde)}. Esto es lo que toca este día de la semana.</div>`;
-  if (E.descarga) h += `<div class="aviso descarga"><b>Descarga: la mitad de las series</b>${d.getDay() === 5 ? '<br>Hoy: zona 2 en vez de intervalos.' : ''}</div>`;
+  if (E.descarga) h += `<div class="aviso descarga"><b>Descarga: la mitad de las series</b>${clave === 'viernes' ? '<br>Hoy: zona 2 en vez de intervalos.' : ''}</div>`;
   if (E.fase === 'plan' && E.b.volumenBajo && E.b.aviso) h += `<div class="aviso descarga">${esc(E.b.aviso)}</div>`;
 
   const t = P.tests.fechas.find((x) => dISO >= x.fecha && dISO <= iso(addDays(parseISO(x.fecha), 6)));
@@ -214,7 +283,7 @@ function vistaHoy() {
   h += items.map((x) => card(x, dISO, false)).join('');
 
   if (s.tipo === 'fuerza') h += `<div class="card regla"><h3>Regla de progresión</h3><p>${esc(P.reglas.progresion)}</p></div>`;
-  if (s.tipo === 'cardio' && d.getDay() === 5) h += '<div class="card regla"><h3>Al terminar</h3><p>Caminá 3–5 min. Nunca pares de golpe.</p></div>';
+  if (clave === 'viernes') h += '<div class="card regla"><h3>Al terminar</h3><p>Caminá 3–5 min. Nunca pares de golpe.</p></div>';
   return h;
 }
 
@@ -222,22 +291,29 @@ function vistaHoy() {
 let diaAbierto = null;
 function vistaSemana() {
   const d = hoy();
-  const lunes = addDays(d, -((d.getDay() + 6) % 7));
   const E = estado(iso(d));
   let h = `<header class="top"><h1>Semana</h1><p class="chip">${chipBloque(E)}</p></header>`;
   if (E.descarga) h += '<div class="aviso descarga"><b>Semana de descarga:</b> la mitad de las series y el viernes zona 2.</div>';
 
-  ORDEN.forEach((dia, k) => {
-    const f = addDays(lunes, k);
+  const dias = diasSemana(d);
+  if (dias.some((f) => claveDe(f) !== claveDefecto(f))) h += '<button type="button" class="cambiar" data-accion="restaurar">↺ Volver la semana al orden original</button>';
+
+  dias.forEach((f, k) => {
+    const dia = f.getDay();
     const S = armarSesion(f);
     const esHoy = iso(f) === iso(d);
-    h += `<details class="dia${esHoy ? ' hoy' : ''}" data-dia="${dia}"${diaAbierto === dia ? ' open' : ''}>
+    const movido = S.clave !== claveDefecto(f);
+    const seguidos = pesada(f) && pesada(addDays(f, -1));
+    h += `<details class="dia${esHoy ? ' hoy' : ''}${iso(f) < iso(d) ? ' pasado' : ''}" data-dia="${dia}"${diaAbierto === dia ? ' open' : ''}>
       <summary>
-        <span class="dn">${DIAS[dia]}${esHoy ? ' <em>hoy</em>' : ''}</span>
-        <span class="dt">${esc(S.s.titulo)}</span>
+        <span class="dn">${DIAS[dia]}${esHoy ? ' <em>hoy</em>' : ''}${hechoEl(f) ? ' <span class="tag ok">✓</span>' : ''}${movido ? ' <span class="tag">movido</span>' : ''}</span>
+        <span class="dt">${esc(S.s.titulo)}${seguidos ? ' <span class="warn">⚠︎ 2 días fuertes seguidos</span>' : ''}</span>
         <span class="dd">${esc(S.s.duracion || '')}</span>
       </summary>
-      <div class="dia-body">${S.s.sub ? `<p class="meta">${esc(S.s.sub)}</p>` : ''}${S.items.map((x) => card(x, S.dISO, true)).join('')}</div>
+      <div class="dia-body">
+        <div class="mover"><span class="meta">Mover a:</span>${dias.filter((g) => g !== f).map((g) => `<button type="button" data-mover="${iso(f)}|${iso(g)}">${DIAS[g.getDay()].slice(0, 3)}</button>`).join('')}</div>
+        ${S.s.sub ? `<p class="meta">${esc(S.s.sub)}</p>` : ''}${S.items.map((x) => card(x, S.dISO, true)).join('')}
+      </div>
     </details>`;
   });
 
@@ -292,14 +368,15 @@ function vistaNutri() {
     h += `<section class="card"><h3>Macros · ${esc(E.b.etiqueta)}</h3><p>${esc(N.mantenimiento)}</p></section>`;
   }
 
-  const sinCarbCena = d.getDay() === 2 || d.getDay() === 0;
+  const sinCarbCena = ['z2', 'domingo'].includes(claveDe(d));
   h += `<section class="card"><h3>Día tipo</h3>
-    ${sinCarbCena ? `<p class="aviso mini">Hoy es ${DIAS[d.getDay()].toLowerCase()}: sin papa ni arroz en la cena.</p>` : ''}
+    ${sinCarbCena ? `<p class="aviso mini">Hoy es día liviano (${esc(titulo(claveDe(d)))}): sin papa ni arroz en la cena.</p>` : ''}
     <ul class="comidas-lista">${N.diaTipo.map((c) => `<li><div><b>${esc(c.comida)}</b><p>${esc(c.detalle)}</p></div><span>~${c.prot} g</span></li>`).join('')}</ul>
     <ul class="reglas">${N.notasDia.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>`;
 
   let avisoAlcohol = '';
-  if (d.getDay() === 2 || d.getDay() === 4) avisoAlcohol = `<p class="aviso mini">Hoy no hay salida: mañana es ${d.getDay() === 2 ? 'miércoles' : 'viernes'}.</p>`;
+  const manana = claveDe(addDays(d, 1));
+  if (['piernas', 'viernes'].includes(manana)) avisoAlcohol = `<p class="aviso mini">Hoy no hay salida: mañana tenés ${esc(titulo(manana))}.</p>`;
   else if (d.getMonth() === 11) avisoAlcohol = '<p class="aviso mini">Diciembre: lo mínimo posible.</p>';
   h += `<section class="card"><h3>Alcohol y comida libre</h3>${avisoAlcohol}
     <ul class="reglas">${N.alcohol.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>`;
@@ -640,7 +717,24 @@ document.addEventListener('click', (ev) => {
   if (el.dataset.test) { testSel = el.dataset.test; return render('progreso', true); }
   if (el.dataset.campo) { campoSel = el.dataset.campo; return render('progreso', true); }
 
+  if (el.dataset.sesion) {
+    const msg = cambiarDia(hoy(), el.dataset.sesion);
+    render('hoy');
+    toast(msg || 'Listo, cambiado');
+    return;
+  }
+  if (el.dataset.mover) {
+    const [a, b] = el.dataset.mover.split('|').map(parseISO);
+    moverDia(a, b);
+    diaAbierto = b.getDay();
+    render('semana', true);
+    toast(`Intercambiados ${diaNombre(a)} y ${diaNombre(b)}`);
+    return;
+  }
+
   const acc = el.dataset.accion;
+  if (acc === 'cambiar') { const o = $('#opciones'); o.hidden = !o.hidden; return; }
+  if (acc === 'restaurar') { restaurarSemana(hoy()); render('semana', true); return toast('Semana restaurada'); }
   if (acc === 'deshacer') { (DB.prot[iso(hoy())] || []).pop(); save(); return render('nutri', true); }
   if (acc === 'crea') { const k = iso(hoy()); DB.crea[k] = !DB.crea[k]; save(); return render('nutri', true); }
   if (acc === 'foto') { const t = (DB.tests[testSel] ||= {}); t.foto = !t.foto; save(); return render('progreso', true); }

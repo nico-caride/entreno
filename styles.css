@@ -278,3 +278,19 @@ small { color: var(--mut); font-size: .8rem; font-weight: 400; }
   background: var(--card2); border: 1px solid var(--line); border-radius: 12px;
   padding: 10px 16px; font-size: .95rem; box-shadow: 0 8px 24px rgba(0,0,0,.5);
 }
+
+/* cambios de día */
+.cambiar {
+  width: 100%; min-height: 48px; margin: 0 0 12px; border-radius: 14px;
+  border: 1px dashed var(--line); background: none; font-weight: 600; text-align: left; padding: 8px 14px;
+}
+.opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: -4px 0 14px; }
+.opciones .meta { grid-column: 1 / -1; margin: 0 0 2px; }
+.opciones .btn { font-size: .92rem; }
+.tag { font-size: .7rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--card2); color: var(--mut); vertical-align: middle; }
+.tag.ok { background: #13201a; color: var(--ok); }
+.warn { color: var(--warn); font-size: .78rem; }
+.dia.pasado:not(.hoy) summary { opacity: .65; }
+.mover { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
+.mover .meta { margin: 0 4px 0 0; }
+.mover button { min-height: 40px; min-width: 48px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); font-weight: 600; font-size: .85rem; }

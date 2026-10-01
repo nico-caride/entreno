@@ -20,7 +20,9 @@
 window.PLAN = {
   lunesSemana1: '2026-09-28', // para numerar las semanas
 
-  // 0 = domingo … 6 = sábado
+  // 0 = domingo … 6 = sábado. Desde la app podés cambiar o mover días.
+  // prioridad: qué sesión se conserva si hay que pisar otra (3 fuerza > 2 intervalos > 1 zona 2; 0 no se pisa)
+  // pesada: para avisar si quedan dos días fuertes seguidos
   semana: { 1: 'supA', 2: 'z2', 3: 'piernas', 4: 'supB', 5: 'viernes', 6: 'sabado', 0: 'domingo' },
 
   movilidad: [
@@ -39,6 +41,7 @@ window.PLAN = {
 
   sesiones: {
     supA: {
+      prioridad: 3,
       titulo: 'Tren superior A', sub: 'Tracción + pop-ups', duracion: '70 min',
       tipo: 'fuerza', movilidadEntrada: true,
       items: [
@@ -55,6 +58,7 @@ window.PLAN = {
     },
 
     z2: {
+      prioridad: 1,
       titulo: 'Zona 2 + movilidad', sub: '45 min de cardio suave + 15 min de movilidad', duracion: '60 min',
       tipo: 'cardio',
       items: [
@@ -65,6 +69,7 @@ window.PLAN = {
     },
 
     piernas: {
+      prioridad: 3, pesada: true,
       titulo: 'Piernas + potencia', sub: 'Con pop-ups', duracion: '70 min',
       tipo: 'fuerza', movilidadEntrada: true,
       items: [
@@ -79,6 +84,7 @@ window.PLAN = {
     },
 
     supB: {
+      prioridad: 3,
       titulo: 'Tren superior B', sub: 'Empuje + hombro + core', duracion: '60–70 min',
       tipo: 'fuerza', movilidadEntrada: true,
       items: [
@@ -93,6 +99,7 @@ window.PLAN = {
     },
 
     viernes: {
+      prioridad: 2, pesada: true,
       titulo: 'Intervalos de remada', sub: 'SkiErg, remo o crol + pop-ups bajo fatiga', duracion: '50 min',
       tipo: 'cardio', movilidadEntrada: true,
       items: [
@@ -105,6 +112,7 @@ window.PLAN = {
     },
 
     sabado: {
+      prioridad: 0, pesada: true,
       titulo: 'Pádel', sub: 'Si no hay pádel: zona 2 de 40 min', duracion: '',
       tipo: 'cardio',
       items: [
@@ -113,6 +121,7 @@ window.PLAN = {
     },
 
     domingo: {
+      prioridad: 0,
       titulo: 'Descanso real', sub: 'Movilidad suave 15–20 min', duracion: '',
       tipo: 'descanso',
       items: [

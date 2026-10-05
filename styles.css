@@ -294,3 +294,5 @@ small { color: var(--mut); font-size: .8rem; font-weight: 400; }
 .mover { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
 .mover .meta { margin: 0 4px 0 0; }
 .mover button { min-height: 40px; min-width: 48px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); font-weight: 600; font-size: .85rem; }
+
+[hidden] { display: none !important; }

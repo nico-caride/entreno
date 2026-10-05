@@ -15,6 +15,7 @@
 //    nota      (opcional) aclaración chica
 //    sinPeso   true si no hace falta anotar kilos
 //    piernas   true para que la progresión sugiera +5 kg (si no, +2,5 kg)
+//    casa      versión para entrenar en casa (lo que no se define, queda igual)
 // ============================================================
 
 window.PLAN = {
@@ -41,16 +42,16 @@ window.PLAN = {
 
   sesiones: {
     supA: {
-      prioridad: 3,
+      corto: 'Sup A', prioridad: 3,
       titulo: 'Tren superior A', sub: 'Tracción + pop-ups', duracion: '70 min',
       tipo: 'fuerza', movilidadEntrada: true,
       items: [
-        { id: 'dominadas', nombre: 'Dominadas', series: 4, reps: '5–8', descanso: 120, nota: 'Con lastre si hacés más de 10' },
+        { id: 'dominadas', nombre: 'Dominadas', series: 4, reps: '5–8', descanso: 120, nota: 'Con lastre si hacés más de 10', casa: { id: 'jalon-banda', nombre: 'Jalón con banda anclada arriba', reps: '10–15', sinPeso: true } },
         { id: 'press-incl', nombre: 'Press inclinado con mancuernas', series: 3, reps: '8–10', descanso: 120 },
         { id: 'remo-pecho', nombre: 'Remo con pecho apoyado', series: 3, reps: '8–10', descanso: 90 },
         { id: 'press-militar', nombre: 'Press militar de pie con mancuernas', series: 3, reps: '8–10', descanso: 90 },
-        { id: 'pullover', nombre: 'Pullover en polea con brazos rectos', series: 3, reps: '12', descanso: 60 },
-        { id: 'facepull', nombre: 'Face pull', series: 3, reps: '15', descanso: 45 },
+        { id: 'pullover', nombre: 'Pullover en polea con brazos rectos', series: 3, reps: '12', descanso: 60, casa: { id: 'pullover-banda', nombre: 'Pullover con banda', reps: '12–15', sinPeso: true } },
+        { id: 'facepull', nombre: 'Face pull', series: 3, reps: '15', descanso: 45, casa: { id: 'facepull-banda', nombre: 'Face pull con banda', reps: '15', sinPeso: true, tec: 'facepull' } },
         { id: 'rot-ext', nombre: 'Rotación externa con banda', series: 2, reps: '15', descanso: 45, sinPeso: true },
         { id: 'bici-tri', nombre: 'Bíceps + tríceps en superserie', series: 3, reps: '10–12', descanso: 60 },
         { id: 'popups-tec', nombre: 'Pop-ups técnicos', series: 3, reps: '5', descanso: 45, nota: 'Lentos y perfectos', sinPeso: true },
@@ -58,7 +59,7 @@ window.PLAN = {
     },
 
     z2: {
-      prioridad: 1,
+      corto: 'Z2', prioridad: 1,
       titulo: 'Zona 2 + movilidad', sub: '45 min de cardio suave + 15 min de movilidad', duracion: '60 min',
       tipo: 'cardio',
       items: [
@@ -69,50 +70,50 @@ window.PLAN = {
     },
 
     piernas: {
-      prioridad: 3, pesada: true,
+      corto: 'Piernas', prioridad: 3, pesada: true,
       titulo: 'Piernas + potencia', sub: 'Con pop-ups', duracion: '70 min',
       tipo: 'fuerza', movilidadEntrada: true,
       items: [
-        { id: 'saltos', nombre: 'Saltos al cajón', series: 4, reps: '3', descanso: 90, nota: 'Siempre primero', sinPeso: true },
-        { id: 'sentadilla', piernas: true, nombre: 'Sentadilla trasera o frontal', series: 4, reps: '5–6', descanso: 150, descansoTxt: '2–3 min' },
-        { id: 'rumano', piernas: true, nombre: 'Peso muerto rumano', series: 3, reps: '8', descanso: 120 },
+        { id: 'saltos', nombre: 'Saltos al cajón', series: 4, reps: '3', descanso: 90, nota: 'Siempre primero', sinPeso: true, casa: { id: 'saltos-vert', nombre: 'Saltos verticales', nota: 'Caé suave, rodillas flexionadas' } },
+        { id: 'sentadilla', piernas: true, nombre: 'Sentadilla trasera o frontal', series: 4, reps: '5–6', descanso: 150, descansoTxt: '2–3 min', casa: { id: 'goblet', nombre: 'Sentadilla goblet con mancuerna', reps: '10–12', nota: 'Bajada en 3 s y pausa abajo', descansoTxt: '' } },
+        { id: 'rumano', piernas: true, nombre: 'Peso muerto rumano', series: 3, reps: '8', descanso: 120, casa: { id: 'rumano-1p', nombre: 'Peso muerto rumano a una pierna', reps: '8–10 por pierna' } },
         { id: 'bulgara', piernas: true, nombre: 'Sentadilla búlgara', series: 3, reps: '8 por pierna', descanso: 90 },
-        { id: 'balon', nombre: 'Lanzamiento rotacional de balón medicinal a la pared', series: 3, reps: '6 por lado', descanso: 60 },
-        { id: 'pallof', nombre: 'Pallof press', series: 3, reps: '10 por lado', descanso: 45 },
+        { id: 'balon', nombre: 'Lanzamiento rotacional de balón medicinal a la pared', series: 3, reps: '6 por lado', descanso: 60, casa: { id: 'pelota-arena', nombre: 'Lanzamiento rotacional con pelota de arena', reps: '8 por lado', sinPeso: true, nota: 'Pelota de 3 kg, contra una pared firme o al piso' } },
+        { id: 'pallof', nombre: 'Pallof press', series: 3, reps: '10 por lado', descanso: 45, casa: { id: 'pallof-banda', nombre: 'Pallof press con banda', sinPeso: true, tec: 'pallof' } },
         { id: 'popups-exp', nombre: 'Pop-ups explosivos', series: 4, reps: '5', descanso: 60, sinPeso: true },
       ],
     },
 
     supB: {
-      prioridad: 3,
+      corto: 'Sup B', prioridad: 3,
       titulo: 'Tren superior B', sub: 'Empuje + hombro + core', duracion: '60–70 min',
       tipo: 'fuerza', movilidadEntrada: true,
       items: [
-        { id: 'banca', nombre: 'Press banca con barra', series: 4, reps: '5–8', descanso: 150, descansoTxt: '2–3 min' },
+        { id: 'banca', nombre: 'Press banca con barra', series: 4, reps: '5–8', descanso: 150, descansoTxt: '2–3 min', casa: { id: 'press-manc', nombre: 'Press con mancuernas en banco plano', reps: '10–12', nota: 'Bajada en 3 s', descansoTxt: '' } },
         { id: 'remo-una', nombre: 'Remo a una mano con mancuerna', series: 3, reps: '8–10 por lado', descanso: 90 },
-        { id: 'fondos', nombre: 'Fondos en paralelas', series: 3, reps: '8–12', descanso: 90, nota: 'Con lastre si hacés más de 12' },
-        { id: 'jalon', nombre: 'Jalón al pecho con agarre neutro', series: 3, reps: '10', descanso: 90 },
+        { id: 'fondos', nombre: 'Fondos en paralelas', series: 3, reps: '8–12', descanso: 90, nota: 'Con lastre si hacés más de 12', casa: { id: 'flex-elev', nombre: 'Flexiones con pies en el banco', reps: '10–15', nota: '' } },
+        { id: 'jalon', nombre: 'Jalón al pecho con agarre neutro', series: 3, reps: '10', descanso: 90, casa: { id: 'jalon-banda', nombre: 'Jalón con banda anclada arriba', reps: '12–15', sinPeso: true } },
         { id: 'laterales', nombre: 'Elevaciones laterales', series: 4, reps: '12–15', descanso: 45 },
         { id: 'ytw', nombre: 'Y-T-W boca abajo en banco inclinado', series: 2, reps: '8 de cada letra', descanso: 45 },
-        { id: 'core', nombre: 'Core', series: 3, texto: '{s} rondas', descanso: 60, nota: 'Rueda abdominal + plancha lateral + hollow hold', sinPeso: true },
+        { id: 'core', nombre: 'Core', series: 3, texto: '{s} rondas', descanso: 60, nota: 'Rueda abdominal + plancha lateral + hollow hold', sinPeso: true, casa: { id: 'core-casa', nota: 'Dead bug + plancha lateral + hollow hold' } },
       ],
     },
 
     viernes: {
-      prioridad: 2, pesada: true,
+      corto: 'Interv.', prioridad: 2, pesada: true,
       titulo: 'Intervalos de remada', sub: 'SkiErg, remo o crol + pop-ups bajo fatiga', duracion: '50 min',
       tipo: 'cardio', movilidadEntrada: true,
       items: [
         { id: 'vie-entrada', nombre: 'Entrada en calor', series: 1, texto: '8 min suaves + 2 aceleraciones de 15 s', sinPeso: true, fijo: true },
         { intervalos: true }, // acá van los intervalos del bloque actual
-        { id: 'vie-popups', nombre: 'Pop-ups bajo fatiga', series: 4, texto: '{s} rondas', descanso: 30, descansoTxt: '30 s de pausa', nota: '30 s de SkiErg a fondo → 3 pop-ups → 30 s de pausa', sinPeso: true },
+        { id: 'vie-popups', nombre: 'Pop-ups bajo fatiga', series: 4, texto: '{s} rondas', descanso: 30, descansoTxt: '30 s de pausa', nota: '30 s de SkiErg a fondo → 3 pop-ups → 30 s de pausa', sinPeso: true, casa: { nota: '30 s de bici o trote fuerte → 3 pop-ups → 30 s de pausa' } },
         { id: 'vie-surf', nombre: 'Remada de surf en banco inclinado con bandas', series: 3, texto: '{s} × 60 s', descanso: 60, sinPeso: true },
         { id: 'vie-calma', nombre: 'Vuelta a la calma', series: 1, texto: '5 min caminando', nota: 'Nunca parar de golpe', sinPeso: true, fijo: true },
       ],
     },
 
     sabado: {
-      prioridad: 0, pesada: true,
+      corto: 'Pádel', prioridad: 0, pesada: true,
       titulo: 'Pádel', sub: 'Si no hay pádel: zona 2 de 40 min', duracion: '',
       tipo: 'cardio',
       items: [
@@ -121,7 +122,7 @@ window.PLAN = {
     },
 
     domingo: {
-      prioridad: 0,
+      corto: 'Desc.', prioridad: 0,
       titulo: 'Descanso real', sub: 'Movilidad suave 15–20 min', duracion: '',
       tipo: 'descanso',
       items: [
@@ -129,6 +130,15 @@ window.PLAN = {
         { movilidadCompleta: true },
       ],
     },
+  },
+
+  // ------------------------------------------------------------
+  //  CASA — lo que tenés para entrenar en casa
+  // ------------------------------------------------------------
+  casa: {
+    equipo: 'Mancuernas de 5, 7,5, 10 y 12,5 kg · banco regulable · bandas elásticas · pelota de arena de 3 kg',
+    mancuernas: [5, 7.5, 10, 12.5], // para sugerir la siguiente cuando llegás al tope de reps
+    notaIntervalos: 'Bici o trote afuera, a 7–8/10 de esfuerzo',
   },
 
   // Viernes de descarga: zona 2 en lugar de los intervalos
@@ -392,6 +402,16 @@ window.PLAN = {
       pasos: ['Boca abajo en banco inclinado, bandas enganchadas adelante.', 'Remá alternando brazos como en la tabla: entra la mano y tirás hasta la cadera.', 'Pecho arriba, mirada al frente, ritmo constante.'],
       error: 'Bajar la cabeza y perder la extensión de la espalda.', video: 'surf paddle training resistance bands',
     },
+    // versiones de casa
+    'jalon-banda': { pasos: ['Banda anclada arriba de la puerta, arrodillado o sentado frente a ella.', 'Tirá llevando los codos hacia las costillas, pecho arriba.', 'Volvé lento hasta estirar los brazos.'], error: 'Tirar con los brazos sin bajar las escápulas.', video: 'banded lat pulldown' },
+    'pullover-banda': { pasos: ['Banda anclada arriba, brazos casi rectos al frente.', 'Llevá la banda en arco hasta los muslos usando los dorsales.', 'Volvé lento.'], error: 'Doblar los codos.', video: 'banded straight arm pulldown' },
+    'saltos-vert': { pasos: ['Pies al ancho de la cadera, brazos atrás.', 'Saltá lo más alto posible balanceando los brazos.', 'Caé suave y frená en media sentadilla antes del próximo.'], error: 'Caer con las piernas rectas.', video: 'squat jump técnica' },
+    goblet: { pasos: ['Mancuerna vertical pegada al pecho, codos abajo.', 'Bajá en 3 s entre las rodillas, pecho arriba, pausa de 1 s abajo.', 'Subí empujando el piso.'], error: 'Despegar los talones o redondear la espalda.', video: 'sentadilla goblet técnica' },
+    'rumano-1p': { pasos: ['Mancuerna en la mano contraria a la pierna de apoyo.', 'Llevá la cadera atrás y la pierna libre estirada hacia atrás, espalda neutra.', 'Bajá hasta sentir el isquio y subí apretando el glúteo.'], error: 'Abrir la cadera hacia un costado.', video: 'single leg romanian deadlift dumbbell' },
+    'pelota-arena': { pasos: ['De costado a la pared, pelota a la altura de la cadera.', 'Rotá primero la cadera y después el torso para soltarla.', 'Si no tenés pared, hacé slams rotacionales al piso.'], error: 'Tirar solo con los brazos.', video: 'rotational slam ball throw' },
+    'press-manc': { pasos: ['Acostado en el banco plano, escápulas juntas.', 'Bajá las mancuernas en 3 s al costado del pecho.', 'Empujá arriba sin chocarlas.'], error: 'Bajar rápido y rebotar.', video: 'press con mancuernas banco plano técnica' },
+    'flex-elev': { pasos: ['Pies apoyados en el banco, manos un poco más anchas que los hombros.', 'Cuerpo en línea recta, bajá el pecho hasta casi tocar el piso.', 'Empujá hasta estirar los brazos.'], error: 'Dejar caer la cadera.', video: 'decline push up técnica' },
+    'core-casa': { pasos: ['Dead bug: boca arriba, lumbar pegada al piso, estirá brazo y pierna contrarios.', 'Plancha lateral: codo debajo del hombro, cuerpo en línea recta.', 'Hollow hold: lumbar pegada al piso, brazos y piernas estirados y despegados.'], error: 'Arquear la zona lumbar.', video: 'dead bug ejercicio' },
     // movilidad
     m1: { pasos: ['Sentado, una pierna adelante y otra al costado, las dos rodillas a 90°.', 'Torso erguido, inclinate un poco sobre la pierna de adelante.', 'Respirá lento y cambiá de lado.'], error: 'Encorvar la espalda.', video: 'cadera 90 90 movilidad' },
     m2: { pasos: ['Rodilla de atrás contra la pared o el sofá, empeine arriba.', 'Pie de adelante firme; apretá el glúteo de la pierna de atrás.', 'Llevá la cadera adelante con el torso erguido.'], error: 'Arquear la lumbar en vez de apretar el glúteo.', video: 'couch stretch' },

@@ -1,8 +1,9 @@
 // Cambiá la versión si querés forzar que se borre el caché viejo.
-const CACHE = 'entreno-v1';
+const CACHE = 'entreno-v2';
 const ARCHIVOS = [
   './', './index.html', './styles.css', './app.js', './plan.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
+  './fonts/barlow-condensed-500.woff2', './fonts/barlow-condensed-600.woff2',
 ];
 
 self.addEventListener('install', (e) => {

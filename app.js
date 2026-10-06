@@ -13,7 +13,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const rango = (n) => Array.from({ length: n }, (_, i) => i);
 
 // ---------- datos (localStorage) ----------
-const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {}, fijos: {}, check: {}, peso: {}, entrenos: {} });
+const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {}, fijos: {}, check: {}, peso: {}, entrenos: {}, comida: {} });
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY));
@@ -281,6 +281,25 @@ function chipBloque(E) {
   return `${esc(E.b.etiqueta.replace('Bloque ', 'B'))} · sem ${E.semana}`;
 }
 
+// ---------- comida ----------
+P.alimentos ||= [];
+P.alimentosCats ||= [];
+P.comidasTipo ||= [];
+const ALI = Object.fromEntries(P.alimentos.map((a) => [a.id, a]));
+function totales(dISO) {
+  let prot = (DB.prot[dISO] || []).reduce((a, b) => a + b, 0);
+  let kcal = 0;
+  for (const e of DB.comida[dISO] || []) {
+    const a = ALI[e.id];
+    if (!a) continue;
+    prot += a.prot * e.c;
+    kcal += a.kcal * e.c;
+  }
+  return { prot: Math.round(prot), kcal: Math.round(kcal) };
+}
+const fmtC = (c) => ({ 0.5: '½', 1.5: '1½' }[c] || fmt(c));
+const sinTildes = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 // ---------- recuperación (check de la mañana) ----------
 const CHECK = [
   { id: 'sueno', t: 'Sueño', ops: ['Mal', 'Normal', 'Bien'] },
@@ -324,7 +343,7 @@ function vistaInicio() {
   const c = DB.check[dISO];
   const p = puntaje(c);
   const z = zona(p);
-  const prot = (DB.prot[dISO] || []).reduce((a, b) => a + b, 0);
+  const prot = totales(dISO).prot;
   const meta = P.nutricion.proteinaMeta;
 
   let h = `<header class="ini-top"><span class="k fuerte">Hoy · ${esc(fechaMedia(d))}</span><span class="k">${chipBloque(E)}</span></header>`;
@@ -635,46 +654,88 @@ function vistaSemana() {
 }
 
 // ---------- pantalla: COMIDA ----------
+let pickerAbierto = false;
+let catSel = null;
+let aliSel = null;
+
+function frecuentes() {
+  const cuenta = {};
+  Object.values(DB.comida).forEach((l) => l.forEach((e) => { cuenta[e.id] = (cuenta[e.id] || 0) + 1; }));
+  return Object.keys(cuenta).filter((id) => ALI[id]).sort((a, b) => cuenta[b] - cuenta[a]).slice(0, 8);
+}
+
 function vistaNutri() {
   const d = hoy();
   const dISO = iso(d);
   const E = estado(dISO);
   const N = P.nutricion;
   const m = E.b.macros;
-  const total = (DB.prot[dISO] || []).reduce((a, b) => a + b, 0);
-  const meta = N.proteinaMeta;
-  const pct = Math.min(100, (total / meta) * 100);
-  const falta = Math.max(0, meta - total);
+  const { prot, kcal } = totales(dISO);
+  const metaP = N.proteinaMeta;
+  const metaK = m?.kcal;
+  const pctP = Math.min(100, (prot / metaP) * 100);
+  const pctK = metaK ? Math.min(100, (kcal / metaK) * 100) : 0;
+  const pasado = metaK && kcal > metaK * 1.05;
 
   let h = `<header class="top"><h1 class="big">Comida</h1><p class="chip">${chipBloque(E)}</p></header>`;
 
-  h += `<section class="card prot">
-    <div class="prot-top"><span class="k">Proteína de hoy</span><p class="prot-n"><b class="big">${total}</b> / ${meta} g</p></div>
-    <div class="bar${total >= meta ? ' llena' : ''}"><span style="width:${pct}%"></span></div>
-    <p class="meta">${total >= meta ? 'Llegaste a la meta.' : `Te faltan ${falta} g.${falta >= 25 ? ' Si no llegás: whey 25 g.' : ''}`}</p>
-    <div class="botonera">${N.botonesProteina.map((g) => `<button type="button" class="btn grande" data-prot="${g}">+${g} g</button>`).join('')}</div>
-    <div class="botonera comidas">${N.diaTipo.map((c) => `<button type="button" class="btn" data-prot="${c.prot}">${esc(c.comida)} <small>+${c.prot}</small></button>`).join('')}</div>
-    <div class="botonera">
-      <button type="button" class="btn sec" data-accion="deshacer"${total ? '' : ' disabled'}>Deshacer</button>
-      <button type="button" class="btn sec${DB.crea[dISO] ? ' on' : ''}" data-accion="crea">${DB.crea[dISO] ? '✓ Creatina tomada' : 'Creatina 5 g'}</button>
-    </div>
+  h += `<section class="c">
+    <div class="macro"><span class="k">Proteína</span><span><b class="big">${prot}</b> <span class="mut">/ ${metaP} g</span></span></div>
+    <div class="bar${prot >= metaP ? ' llena' : ''}"><span style="width:${pctP}%"></span></div>
+    <div class="macro"><span class="k">Calorías</span><span><b class="big">${fmt(kcal, 0)}</b> <span class="mut">${metaK ? `/ ${fmt(metaK, 0)}` : 'mantenimiento'}</span></span></div>
+    ${metaK ? `<div class="bar kcal${pasado ? ' pasado' : ''}"><span style="width:${pctK}%"></span></div>` : ''}
+    <p class="meta">${prot >= metaP ? 'Proteína cubierta.' : `Te faltan ${metaP - prot} g de proteína.${metaP - prot >= 20 ? ' Si no llegás: whey.' : ''}`}${metaK ? (pasado ? ' Te pasaste de las kcal del día.' : ` Te quedan ${fmt(metaK - kcal, 0)} kcal.`) : ''}</p>
+    <button type="button" class="check-foto mini${DB.crea[dISO] ? ' on' : ''}" data-accion="crea">${DB.crea[dISO] ? '✓ Creatina tomada' : '○ Creatina 5 g'}</button>
   </section>`;
 
+  h += `<p class="k sec">Comidas tipo</p><div class="tipos">${P.comidasTipo.map((c, i) => {
+    let p = 0; let k = 0;
+    c.items.forEach(([id, n]) => { p += ALI[id].prot * n; k += ALI[id].kcal * n; });
+    return `<button type="button" class="tipo" data-tipo="${i}"><b>${esc(c.nombre.replace(' tipo', ''))}</b><small>${Math.round(p)} g · ${k} kcal</small></button>`;
+  }).join('')}</div>`;
+
+  h += `<button type="button" class="primario${pickerAbierto ? ' gris' : ''}" data-accion="picker">${pickerAbierto ? 'Cerrar' : '+ Agregar alimento'}</button>`;
+  if (pickerAbierto) {
+    const frec = frecuentes();
+    const cat = catSel || (frec.length ? 'Frecuentes' : P.alimentosCats[0]);
+    const cats = (frec.length ? ['Frecuentes'] : []).concat(P.alimentosCats);
+    const lista = cat === 'Frecuentes' ? frec.map((id) => ALI[id]) : P.alimentos.filter((a) => a.cat === cat);
+    h += `<section class="c picker">
+      <input id="buscar" type="search" placeholder="Buscar: huevo, pollo, pizza…" autocomplete="off" aria-label="Buscar alimento">
+      <div class="segmentos chico" id="cats">${cats.map((c) => `<button type="button" class="${c === cat ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+      <ul class="ali-lista" id="ali-lista">${P.alimentos.map((a) => {
+        const visible = lista.includes(a);
+        return `<li data-n="${esc(sinTildes(a.nombre))}" data-vis="${visible ? 1 : 0}"${visible ? '' : ' hidden'}>
+          <button type="button" class="ali" data-ali="${a.id}"><span><b>${esc(a.nombre)}</b><small>${esc(a.porcion)}</small></span><span class="mut">${fmt(a.prot)} g · ${a.kcal} kcal</span></button>
+          ${aliSel === a.id ? `<div class="cant"><span class="k">¿Cuánto?</span>${[0.5, 1, 1.5, 2, 3].map((c) => `<button type="button" data-add="${a.id}|${c}">${fmtC(c)}</button>`).join('')}</div>` : ''}
+        </li>`;
+      }).join('')}</ul>
+    </section>`;
+  }
+
+  const hoyL = DB.comida[dISO] || [];
+  const rapidas = DB.prot[dISO] || [];
+  if (hoyL.length || rapidas.length) {
+    h += `<p class="k sec">Hoy comiste</p><section class="c lista-hoy">${hoyL.map((e, i) => {
+      const a = ALI[e.id];
+      if (!a) return '';
+      return `<div class="item-c"><span><b>${esc(a.nombre)}</b><small>${fmtC(e.c)} × ${esc(a.porcion)}</small></span><span class="mut">${Math.round(a.prot * e.c)} g · ${Math.round(a.kcal * e.c)}</span><button type="button" class="x" data-borrar="${i}" aria-label="Borrar">✕</button></div>`;
+    }).join('')}${rapidas.map((g, i) => `<div class="item-c"><span><b>Carga rápida</b><small>versión anterior</small></span><span class="mut">${g} g</span><button type="button" class="x" data-borrar-prot="${i}" aria-label="Borrar">✕</button></div>`).join('')}</section>`;
+  }
+
+  h += '<p class="k sec">Guía</p>';
   if (m) {
-    h += `<section class="card"><h3>Macros · ${esc(E.b.etiqueta)}</h3>
+    h += `<details class="card plegable"><summary><h3>Macros · ${esc(E.b.etiqueta)}</h3></summary>
       <div class="tiles">
         <div class="tile"><b class="big">${fmt(m.kcal, 0)}</b><span>kcal</span></div>
         <div class="tile"><b class="big">${m.prot} g</b><span>proteína</span></div>
         <div class="tile"><b class="big">~${m.grasa} g</b><span>grasa</span></div>
         <div class="tile"><b class="big">~${m.carbs} g</b><span>carbos</span></div>
       </div>
-      <p class="meta">${esc(N.objetivo)}</p></section>`;
-  } else {
-    h += `<section class="card"><h3>Macros · ${esc(E.b.etiqueta)}</h3><p>${esc(N.mantenimiento)}</p></section>`;
+      <p class="meta">${esc(N.objetivo)}</p></details>`;
   }
-
   const sinCarbCena = ['z2', 'domingo'].includes(claveDe(d));
-  h += `<details class="card plegable"><summary><h3>Día tipo</h3></summary>
+  h += `<details class="card plegable"${sinCarbCena ? ' open' : ''}><summary><h3>Día tipo</h3></summary>
     ${sinCarbCena ? `<p class="aviso mini">Hoy es día liviano (${esc(titulo(claveDe(d)))}): sin papa ni arroz en la cena.</p>` : ''}
     <ul class="comidas-lista">${N.diaTipo.map((c) => `<li><div><b>${esc(c.comida)}</b><p>${esc(c.detalle)}</p></div><span>~${c.prot} g</span></li>`).join('')}</ul>
     <ul class="reglas">${N.notasDia.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`;
@@ -685,9 +746,16 @@ function vistaNutri() {
   else if (d.getMonth() === 11) avisoAlcohol = '<p class="aviso mini">Diciembre: lo mínimo posible.</p>';
   h += `<details class="card plegable"${avisoAlcohol ? ' open' : ''}><summary><h3>Alcohol y comida libre</h3></summary>${avisoAlcohol}
     <ul class="reglas">${N.alcohol.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`;
-
   h += `<details class="card plegable"><summary><h3>Todos los días y suplementos</h3></summary><ul class="reglas">${N.otros.concat(N.suplementos).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`;
   return h;
+}
+
+function filtrarAlimentos(q) {
+  const t = sinTildes(q.trim());
+  document.querySelectorAll('#ali-lista li').forEach((li) => {
+    li.hidden = t ? !li.dataset.n.includes(t) : li.dataset.vis !== '1';
+  });
+  $('#cats').hidden = !!t;
 }
 
 // ---------- pantalla: PROGRESO ----------
@@ -715,9 +783,12 @@ function vistaProgreso() {
   const t = DB.tests[testSel] || {};
   const tInfo = P.tests.fechas.find((x) => x.id === testSel);
 
-  let h = '<header class="top"><h1 class="big">Progreso</h1><p class="sub">Tests cada 4 semanas</p></header>';
+  let h = '<header class="top"><h1 class="big">Progreso</h1></header>';
 
-  h += `<div class="segmentos">${P.tests.fechas.map((x) => `<button type="button" class="${x.id === testSel ? 'on' : ''}" data-test="${x.id}">${esc(x.nombre)}${testCompleto(x.id) ? ' ✓' : ''}</button>`).join('')}</div>`;
+  h += seccionPeso(dISO);
+  h += seccionEjercicios();
+
+  h += `<p class="k sec">Tests cada 4 semanas</p><div class="segmentos">${P.tests.fechas.map((x) => `<button type="button" class="${x.id === testSel ? 'on' : ''}" data-test="${x.id}">${esc(x.nombre)}${testCompleto(x.id) ? ' ✓' : ''}</button>`).join('')}</div>`;
 
   h += `<section class="card tests"><h3>Test · ${esc(tInfo.nombre)} <small>${fechaCorta(tInfo.fecha)}</small></h3>`;
   for (const c of P.tests.campos) {
@@ -746,6 +817,111 @@ function vistaProgreso() {
     <input type="file" id="archivo" accept="application/json,.json" hidden>
   </section>`;
   return h;
+}
+
+// ---------- peso diario ----------
+const prom = (v) => v.reduce((a, b) => a + b, 0) / v.length;
+function semanasPeso(hastaISO) {
+  const map = {};
+  for (const [f, v] of Object.entries(DB.peso)) {
+    const n = num(v);
+    if (n == null || f > hastaISO) continue;
+    (map[iso(lunesDe(parseISO(f)))] ||= []).push(n);
+  }
+  return Object.keys(map).sort().map((l) => ({ l, prom: prom(map[l]), n: map[l].length }));
+}
+// Aplica las reglas de ajuste del plan con los promedios semanales.
+function ajustePeso(dISO) {
+  const sem = semanasPeso(dISO).filter((x) => x.n >= 3);
+  if (sem.length < 2) return { txt: 'Pesate 3 mañanas por semana: con 2 semanas te digo si vas en ritmo.', tipo: '' };
+  const d1 = sem[sem.length - 1].prom - sem[sem.length - 2].prom;
+  const d2 = sem.length >= 3 ? sem[sem.length - 2].prom - sem[sem.length - 3].prom : null;
+  if (d1 < -0.5) return { txt: `Bajaste ${fmt(-d1)} kg en la última semana (más de 0,5): subí 150 kcal.`, tipo: 'warn' };
+  if (d2 != null && Math.abs(d1) < 0.15 && Math.abs(d2) < 0.15) return { txt: 'Peso sin moverse 2 semanas: bajá 150 kcal.', tipo: 'warn' };
+  if (d1 > 0.15) return { txt: `Subiste ${fmt(d1)} kg en la última semana. Revisá salidas y comida libre.`, tipo: 'warn' };
+  if (d1 <= -0.2) return { txt: `Vas en ritmo: ${fmt(-d1)} kg menos que la semana anterior.`, tipo: 'ok' };
+  return { txt: `Última semana: ${d1 > 0 ? '+' : ''}${fmt(d1)} kg. El objetivo es bajar 0,25–0,4 por semana.`, tipo: '' };
+}
+function seccionPeso(dISO) {
+  const pts = Object.keys(DB.peso).filter((f) => f <= dISO && num(DB.peso[f]) != null).sort().map((f) => ({ f, v: num(DB.peso[f]) }));
+  const sem = semanasPeso(dISO);
+  const aj = ajustePeso(dISO);
+  const ult = sem[sem.length - 1];
+  let h = `<section class="c"><div class="fila-k"><span class="k">Peso</span>${ult ? `<span class="k">prom. semana <b class="big blanco">${fmt(ult.prom)} kg</b></span>` : ''}</div>`;
+  if (!pts.length) return `${h}<p class="meta vacio-g">Cargá tu peso en ayunas en Inicio y acá ves la tendencia.</p></section>`;
+  // media móvil de 7 días para ver la tendencia sin el ruido diario
+  const media = pts.map((p) => {
+    const desde = iso(addDays(parseISO(p.f), -6));
+    return { f: p.f, v: prom(pts.filter((q) => q.f >= desde && q.f <= p.f).map((q) => q.v)) };
+  });
+  h += graficoSerie(pts, { linea: media, banda: P.tests.pesoObjetivo, unidad: 'kg' });
+  h += `<p class="reco" style="--z:${aj.tipo === 'warn' ? 'var(--warn)' : aj.tipo === 'ok' ? 'var(--ok)' : 'var(--line)'}">${esc(aj.txt)}</p></section>`;
+  return h;
+}
+
+// ---------- historial por ejercicio ----------
+let ejSel = null;
+function nombresEjercicios() {
+  const n = {};
+  for (const k in P.sesiones) {
+    for (const it of P.sesiones[k].items) {
+      if (!it.id) continue;
+      n[it.id] = it.nombre;
+      if (it.casa?.id) n[it.casa.id] = it.casa.nombre;
+    }
+  }
+  return n;
+}
+function seccionEjercicios() {
+  const nombres = nombresEjercicios();
+  const series = {};
+  for (const f of Object.keys(DB.logs).sort()) {
+    for (const [id, e] of Object.entries(DB.logs[f])) {
+      const w = pesoMax(e);
+      if (w == null || !(e.d || []).some(Boolean)) continue;
+      (series[id] ||= []).push({ f, v: w, e });
+    }
+  }
+  const ids = Object.keys(series);
+  let h = '<section class="c"><span class="k">Ejercicios</span>';
+  if (!ids.length) return `${h}<p class="meta vacio-g">Cuando registres pesos en los entrenamientos, acá ves cómo evoluciona cada ejercicio.</p></section>`;
+  if (!ejSel || !series[ejSel]) ejSel = ids.sort((a, b) => series[b].length - series[a].length)[0];
+  const nom = (id) => { const [base, casa] = id.split('@'); return `${nombres[base] || base}${casa ? ' (casa)' : ''}`; };
+  h += `<select id="ej-sel" class="sel">${ids.sort((a, b) => nom(a).localeCompare(nom(b))).map((id) => `<option value="${esc(id)}"${id === ejSel ? ' selected' : ''}>${esc(nom(id))}</option>`).join('')}</select>`;
+  const pts = series[ejSel];
+  h += graficoSerie(pts, { unidad: 'kg' });
+  h += `<ul class="res-lista">${pts.slice(-5).reverse().map((p) => `<li><span>${fechaCorta(p.f)}</span><span class="mut">${fmt(p.v)} kg · ${(p.e.r || []).filter(Boolean).join('-') || '—'} reps</span></li>`).join('')}</ul></section>`;
+  return h;
+}
+
+// Gráfico de una serie de fechas: puntos, línea opcional (tendencia) y banda objetivo.
+function graficoSerie(pts, { linea, banda, unidad } = {}) {
+  const W = 340, H = 170, L = 38, R = 14, T = 16, B = 24;
+  const f0 = parseISO(pts[0].f);
+  const dias = (f) => Math.round((parseISO(f) - f0) / 864e5);
+  const span = Math.max(1, dias(pts[pts.length - 1].f));
+  const vals = pts.map((p) => p.v).concat(banda || []);
+  let min = Math.min(...vals);
+  let max = Math.max(...vals);
+  if (min === max) { min -= 1; max += 1; }
+  const pad = (max - min) * 0.15;
+  min -= pad; max += pad;
+  const x = (f) => (pts.length === 1 ? (L + W - R) / 2 : L + (dias(f) / span) * (W - L - R));
+  const y = (v) => T + ((max - v) / (max - min)) * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}" class="svg-g" role="img" aria-label="Evolución en ${unidad}">`;
+  for (let k = 0; k <= 2; k++) {
+    const v = min + ((max - min) * k) / 2;
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="g-grid"/><text x="${L - 6}" y="${y(v) + 4}" class="g-eje" text-anchor="end">${fmt(v)}</text>`;
+  }
+  if (banda) s += `<rect x="${L}" width="${W - L - R}" y="${y(banda[1])}" height="${y(banda[0]) - y(banda[1])}" class="g-obj"/>`;
+  s += `<text x="${L}" y="${H - 6}" class="g-eje">${fechaCorta(pts[0].f)}</text>`;
+  if (pts.length > 1) s += `<text x="${W - R}" y="${H - 6}" class="g-eje" text-anchor="end">${fechaCorta(pts[pts.length - 1].f)}</text>`;
+  const ln = linea || (pts.length > 1 ? pts : null);
+  if (ln && ln.length > 1) s += `<polyline points="${ln.map((p) => `${x(p.f)},${y(p.v)}`).join(' ')}" class="g-linea"/>`;
+  pts.forEach((p) => { s += `<circle cx="${x(p.f)}" cy="${y(p.v)}" r="${linea ? 2.5 : 4}" class="${linea ? 'g-dia' : 'g-punto'}"/>`; });
+  const ultimo = pts[pts.length - 1];
+  s += `<text x="${Math.min(x(ultimo.f), W - R - 14)}" y="${y(ultimo.v) - 8}" class="g-val" text-anchor="middle">${fmt(ultimo.v)}</text>`;
+  return `${s}</svg>`;
 }
 
 function grafico(campo) {
@@ -1013,11 +1189,25 @@ document.addEventListener('click', (ev) => {
   }
   if (el.dataset.lugar) { lugarSel = el.dataset.lugar; return render('inicio', true); }
 
-  if (el.dataset.prot) {
-    (DB.prot[dISO] ||= []).push(+el.dataset.prot);
+  if (el.dataset.ali) { aliSel = aliSel === el.dataset.ali ? null : el.dataset.ali; const q = $('#buscar')?.value || ''; render('nutri', true); if (q) { $('#buscar').value = q; filtrarAlimentos(q); } return; }
+  if (el.dataset.add) {
+    const [id, c] = el.dataset.add.split('|');
+    (DB.comida[dISO] ||= []).push({ id, c: +c, t: Date.now() });
     save();
-    return render('nutri', true);
+    aliSel = null;
+    render('nutri', true);
+    return toast(`Agregado: ${fmtC(+c)} × ${ALI[id].nombre}`);
   }
+  if (el.dataset.tipo) {
+    const c = P.comidasTipo[+el.dataset.tipo];
+    c.items.forEach(([id, n]) => (DB.comida[dISO] ||= []).push({ id, c: n, t: Date.now() }));
+    save();
+    render('nutri', true);
+    return toast(`Agregado: ${c.nombre}`);
+  }
+  if (el.dataset.borrar) { (DB.comida[dISO] || []).splice(+el.dataset.borrar, 1); save(); return render('nutri', true); }
+  if (el.dataset.borrarProt) { (DB.prot[dISO] || []).splice(+el.dataset.borrarProt, 1); save(); return render('nutri', true); }
+  if (el.dataset.cat) { catSel = el.dataset.cat; aliSel = null; return render('nutri', true); }
 
   if (el.dataset.test) { testSel = el.dataset.test; return render('progreso', true); }
   if (el.dataset.campo) { campoSel = el.dataset.campo; return render('progreso', true); }
@@ -1056,7 +1246,7 @@ document.addEventListener('click', (ev) => {
   if (acc === 'confirmar-prop') { aplicar(propuesta); const m = textoCambios(propuesta); propuesta = null; render('semana', true); return toast(m ? `Listo: ${m}` : 'Listo'); }
   if (acc === 'cancelar-prop') { propuesta = null; return render('semana', true); }
   if (acc === 'restaurar') { restaurarSemana(hoy()); render('semana', true); return toast('Semana restaurada'); }
-  if (acc === 'deshacer') { (DB.prot[dISO] || []).pop(); save(); return render('nutri', true); }
+  if (acc === 'picker') { pickerAbierto = !pickerAbierto; aliSel = null; return render('nutri', true); }
   if (acc === 'crea') { DB.crea[dISO] = !DB.crea[dISO]; save(); return render('nutri', true); }
   if (acc === 'foto') { const t = (DB.tests[testSel] ||= {}); t.foto = !t.foto; save(); return render('progreso', true); }
   if (acc === 'exportar') return exportar();
@@ -1130,6 +1320,7 @@ document.addEventListener('input', (ev) => {
     save();
     return;
   }
+  if (el.id === 'buscar') return filtrarAlimentos(el.value);
   if (el.id === 'peso-hoy') {
     DB.peso[iso(hoy())] = el.value.trim().replace('.', ',');
     save();
@@ -1148,6 +1339,7 @@ document.addEventListener('input', (ev) => {
 
 document.addEventListener('change', (ev) => {
   if (ev.target.id === 'peso-hoy') render('inicio', true);
+  if (ev.target.id === 'ej-sel') { ejSel = ev.target.value; render('progreso', true); }
   if (ev.target.dataset.tc) $('#grafico').innerHTML = grafico(campoSel);
   if (ev.target.id === 'archivo' && ev.target.files[0]) importar(ev.target.files[0]);
 });

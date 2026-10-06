@@ -260,6 +260,57 @@ window.PLAN = {
   },
 
   // ------------------------------------------------------------
+  //  ALIMENTOS — valores aproximados por porción (prot en g, kcal)
+  //  Agregá o corregí lo que quieras: el id no se tiene que repetir.
+  // ------------------------------------------------------------
+  alimentosCats: ['Proteínas', 'Lácteos', 'Carbohidratos', 'Frutas y verduras', 'Grasas y extras', 'Salidas'],
+  alimentos: [
+    { id: 'huevo', nombre: 'Huevo', porcion: '1 unidad', cat: 'Proteínas', prot: 6, kcal: 75 },
+    { id: 'clara', nombre: 'Clara de huevo', porcion: '1 clara', cat: 'Proteínas', prot: 3.5, kcal: 17 },
+    { id: 'pollo', nombre: 'Pollo cocido', porcion: '100 g', cat: 'Proteínas', prot: 28, kcal: 160 },
+    { id: 'carne', nombre: 'Carne vacuna magra', porcion: '100 g cocida', cat: 'Proteínas', prot: 28, kcal: 200 },
+    { id: 'picada', nombre: 'Carne picada especial', porcion: '100 g cocida', cat: 'Proteínas', prot: 25, kcal: 230 },
+    { id: 'cerdo', nombre: 'Cerdo magro', porcion: '100 g cocido', cat: 'Proteínas', prot: 27, kcal: 190 },
+    { id: 'merluza', nombre: 'Pescado blanco (merluza)', porcion: '100 g cocido', cat: 'Proteínas', prot: 20, kcal: 100 },
+    { id: 'salmon', nombre: 'Salmón', porcion: '100 g cocido', cat: 'Proteínas', prot: 22, kcal: 210 },
+    { id: 'atun', nombre: 'Atún al natural', porcion: '1 lata escurrida', cat: 'Proteínas', prot: 25, kcal: 120 },
+    { id: 'jamon', nombre: 'Jamón cocido', porcion: '2 fetas', cat: 'Proteínas', prot: 7, kcal: 50 },
+    { id: 'whey', nombre: 'Whey', porcion: '1 scoop (25 g)', cat: 'Proteínas', prot: 20, kcal: 100 },
+    { id: 'legumbres', nombre: 'Lentejas o garbanzos', porcion: '1 taza cocida', cat: 'Proteínas', prot: 15, kcal: 230 },
+    { id: 'yogur', nombre: 'Yogur griego o skyr', porcion: '200 g', cat: 'Lácteos', prot: 20, kcal: 130 },
+    { id: 'leche', nombre: 'Leche descremada', porcion: '1 vaso (250 ml)', cat: 'Lácteos', prot: 8, kcal: 90 },
+    { id: 'queso', nombre: 'Queso (port salut light)', porcion: '30 g', cat: 'Lácteos', prot: 7, kcal: 75 },
+    { id: 'ricota', nombre: 'Ricota descremada', porcion: '100 g', cat: 'Lácteos', prot: 11, kcal: 130 },
+    { id: 'avena', nombre: 'Avena', porcion: '50 g', cat: 'Carbohidratos', prot: 6.5, kcal: 190 },
+    { id: 'tostada', nombre: 'Tostada integral', porcion: '1 rebanada', cat: 'Carbohidratos', prot: 3.5, kcal: 75 },
+    { id: 'arroz', nombre: 'Arroz cocido', porcion: '1 taza', cat: 'Carbohidratos', prot: 4, kcal: 205 },
+    { id: 'fideos', nombre: 'Fideos cocidos', porcion: '1 plato (200 g)', cat: 'Carbohidratos', prot: 10, kcal: 300 },
+    { id: 'papa', nombre: 'Papa', porcion: '200 g', cat: 'Carbohidratos', prot: 4, kcal: 170 },
+    { id: 'batata', nombre: 'Batata', porcion: '200 g', cat: 'Carbohidratos', prot: 3, kcal: 180 },
+    { id: 'banana', nombre: 'Banana', porcion: '1 mediana', cat: 'Frutas y verduras', prot: 1, kcal: 105 },
+    { id: 'fruta', nombre: 'Fruta (manzana, naranja…)', porcion: '1 unidad', cat: 'Frutas y verduras', prot: 0.5, kcal: 70 },
+    { id: 'verduras', nombre: 'Verduras', porcion: '1 plato', cat: 'Frutas y verduras', prot: 3, kcal: 60 },
+    { id: 'palta', nombre: 'Palta', porcion: '½ unidad', cat: 'Grasas y extras', prot: 2, kcal: 160 },
+    { id: 'aceite', nombre: 'Aceite de oliva', porcion: '1 cucharada', cat: 'Grasas y extras', prot: 0, kcal: 120 },
+    { id: 'frutos-secos', nombre: 'Frutos secos', porcion: '30 g', cat: 'Grasas y extras', prot: 6, kcal: 180 },
+    { id: 'miel', nombre: 'Miel', porcion: '1 cucharada', cat: 'Grasas y extras', prot: 0, kcal: 60 },
+    { id: 'barrita', nombre: 'Barrita de proteína', porcion: '1 unidad', cat: 'Grasas y extras', prot: 15, kcal: 200 },
+    { id: 'milanesa', nombre: 'Milanesa de carne al horno', porcion: '1 unidad', cat: 'Salidas', prot: 30, kcal: 330 },
+    { id: 'empanada', nombre: 'Empanada', porcion: '1 unidad', cat: 'Salidas', prot: 9, kcal: 280 },
+    { id: 'pizza', nombre: 'Pizza', porcion: '1 porción', cat: 'Salidas', prot: 12, kcal: 300 },
+    { id: 'hamburguesa', nombre: 'Hamburguesa con pan', porcion: '1 unidad', cat: 'Salidas', prot: 28, kcal: 550 },
+    { id: 'fernet', nombre: 'Fernet con coca zero', porcion: '1 trago', cat: 'Salidas', prot: 0, kcal: 130 },
+    { id: 'cerveza', nombre: 'Cerveza', porcion: '1 vaso (330 ml)', cat: 'Salidas', prot: 1, kcal: 140 },
+  ],
+  // Comidas armadas: [id del alimento, cantidad de porciones]
+  comidasTipo: [
+    { nombre: 'Desayuno tipo', items: [['huevo', 3], ['avena', 1], ['fruta', 1]] },
+    { nombre: 'Almuerzo tipo', items: [['pollo', 2], ['verduras', 1], ['arroz', 1]] },
+    { nombre: 'Pre-entreno tipo', items: [['yogur', 1], ['banana', 1], ['tostada', 2], ['miel', 1]] },
+    { nombre: 'Cena tipo', items: [['carne', 2], ['verduras', 1], ['papa', 1]] },
+  ],
+
+  // ------------------------------------------------------------
   //  TESTS cada 4 semanas
   // ------------------------------------------------------------
   tests: {

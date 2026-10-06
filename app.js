@@ -13,7 +13,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const rango = (n) => Array.from({ length: n }, (_, i) => i);
 
 // ---------- datos (localStorage) ----------
-const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {}, check: {}, peso: {}, entrenos: {} });
+const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {}, fijos: {}, check: {}, peso: {}, entrenos: {} });
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY));
@@ -65,45 +65,109 @@ const pesada = (d) => !!P.sesiones[claveDe(d)].pesada;
 const diaNombre = (d) => DIAS[d.getDay()].toLowerCase();
 const hechoEl = (d) => Object.values(DB.logs[iso(d)] || {}).some((e) => (e.d || []).some(Boolean));
 
-// Hoy hice "nueva" en vez de lo planeado: intercambia con el día de "nueva" si viene
-// más adelante en la semana; si no, la sesión perdida pisa un día de menor prioridad.
-function cambiarDia(d, nueva) {
-  const dISO = iso(d);
-  const vieja = claveDe(d);
-  if (nueva === vieja) return '';
-  const futuros = diasSemana(d).filter((f) => iso(f) > dISO);
-  DB.agenda[dISO] = nueva;
-  let msg = '';
-  const slot = futuros.find((f) => claveDe(f) === nueva);
-  if (slot) {
-    DB.agenda[iso(slot)] = vieja;
-    msg = `${titulo(vieja)} pasó al ${diaNombre(slot)}.`;
-  } else if (prio(vieja) > 0) {
-    const libre = futuros
-      .filter((f) => prio(claveDe(f)) > 0 && prio(claveDe(f)) < prio(vieja))
-      .sort((a, b) => prio(claveDe(a)) - prio(claveDe(b)))[0];
-    if (libre) {
-      const pisada = claveDe(libre);
-      DB.agenda[iso(libre)] = vieja;
-      msg = `${titulo(vieja)} pasó al ${diaNombre(libre)}, en lugar de ${titulo(pisada)}.`;
-    } else {
-      msg = `${titulo(vieja)} queda salteada esta semana.`;
-    }
+// ---------- reorganizar la semana ----------
+// Un día está bloqueado si ya pasó, o si es hoy y ya entrenaste.
+const bloqueado = (f) => {
+  const hISO = iso(hoy());
+  return iso(f) < hISO || (iso(f) === hISO && (!!DB.entrenos[hISO]?.inicio || hechoEl(f)));
+};
+const fijado = (f) => !!DB.fijos[iso(f)];
+const esFuerza = (k) => P.sesiones[k].tipo === 'fuerza';
+const esPesada = (k) => !!P.sesiones[k].pesada;
+
+// Puntaje de una semana (menos es mejor): evita días fuertes seguidos y fuerza
+// pegada a fuerza, y cambia lo menos posible respecto de cómo estaba.
+function puntuar(a, ref, ayer) {
+  let s = 0;
+  const seq = [ayer, ...a];
+  for (let i = 1; i < seq.length; i++) {
+    if (esPesada(seq[i]) && esPesada(seq[i - 1])) s += 10;
+    if (esFuerza(seq[i]) && esFuerza(seq[i - 1])) s += 3;
   }
-  save();
-  return msg;
+  a.forEach((k, i) => { if (k !== ref[i]) s += 1; });
+  return s;
 }
-function moverDia(a, b) {
-  const ka = claveDe(a);
-  const kb = claveDe(b);
-  DB.agenda[iso(a)] = kb;
-  DB.agenda[iso(b)] = ka;
+function permutaciones(arr, cb) {
+  const usado = arr.map(() => false);
+  const cur = [];
+  const rec = () => {
+    if (cur.length === arr.length) return cb(cur);
+    const vistos = new Set();
+    arr.forEach((k, i) => {
+      if (usado[i] || vistos.has(k)) return;
+      vistos.add(k); usado[i] = true; cur.push(k); rec(); cur.pop(); usado[i] = false;
+    });
+  };
+  rec();
+}
+
+// Pone "clave" en el día "destino" (queda fijo) y reacomoda el resto de los días libres
+// de la semana. "origen" es el día de donde se arrastró (se libera aunque estuviera fijo).
+function reorganizar(destino, clave, origen) {
+  const dias = diasSemana(destino);
+  const antes = dias.map(claveDe);
+  const dI = dias.findIndex((f) => iso(f) === iso(destino));
+  const libres = [];
+  const pool = [antes[dI]];
+  dias.forEach((f, i) => {
+    if (i === dI || bloqueado(f)) return;
+    if (fijado(f) && !(origen && iso(f) === iso(origen))) return;
+    libres.push(i);
+    pool.push(antes[i]);
+  });
+  const ix = pool.indexOf(clave);
+  if (ix >= 0) pool.splice(ix, 1);
+  // Si sobra una sesión (agregaste algo extra), se cae la de menor prioridad; el descanso se cuida.
+  const caidas = [];
+  const peso = (k) => (k === 'domingo' ? 4 : prio(k));
+  while (pool.length > libres.length) {
+    let m = 0;
+    pool.forEach((k, i) => { if (peso(k) < peso(pool[m])) m = i; });
+    caidas.push(pool.splice(m, 1)[0]);
+  }
+  const ayer = claveDe(addDays(dias[0], -1));
+  const asign = antes.slice();
+  asign[dI] = clave;
+  let mejor = null;
+  let mejorP = Infinity;
+  permutaciones(pool, (perm) => {
+    libres.forEach((i, j) => { asign[i] = perm[j]; });
+    const p = puntuar(asign, antes, ayer);
+    if (p < mejorP) { mejorP = p; mejor = asign.slice(); }
+  });
+  return { dias: dias.map(iso), antes, despues: mejor || asign, destino: iso(destino), origen: origen ? iso(origen) : null, caidas, ayer };
+}
+function aplicar(prop) {
+  prop.dias.forEach((f, i) => { DB.agenda[f] = prop.despues[i]; });
+  if (prop.origen) delete DB.fijos[prop.origen];
+  DB.fijos[prop.destino] = true;
   save();
+}
+const DIA3 = (fISO) => DIAS[parseISO(fISO).getDay()].slice(0, 3).toLowerCase();
+function textoCambios(prop) {
+  const c = prop.dias.map((f, i) => (prop.despues[i] !== prop.antes[i] && f !== prop.destino ? `${titulo(prop.despues[i])} → ${DIA3(f)}` : null)).filter(Boolean);
+  const caidas = prop.caidas.map((k) => `se cae ${titulo(k)}`);
+  return c.concat(caidas).join(' · ');
+}
+function seguidosEn(prop) {
+  const seq = [prop.ayer, ...prop.despues];
+  const out = [];
+  for (let i = 1; i < seq.length; i++) if (esPesada(seq[i]) && esPesada(seq[i - 1])) out.push(`${titulo(seq[i - 1])} y ${titulo(seq[i])}`);
+  return out;
+}
+
+// Desde Inicio: "hoy hice otra cosa". Se aplica directo.
+function cambiarDia(d, nueva) {
+  if (nueva === claveDe(d)) return '';
+  const prop = reorganizar(d, nueva, null);
+  aplicar(prop);
+  return textoCambios(prop);
 }
 function restaurarSemana(d) {
-  diasSemana(d).forEach((f) => { delete DB.agenda[iso(f)]; });
+  diasSemana(d).forEach((f) => { delete DB.agenda[iso(f)]; delete DB.fijos[iso(f)]; });
   save();
 }
+
 // Solo avisa si los dos días fuertes seguidos salen de un cambio tuyo, no del plan original.
 function avisoSeguidos(d) {
   if (!pesada(d)) return '';
@@ -505,29 +569,52 @@ function cardVer(x, dISO) {
   </article>`;
 }
 
+let propuesta = null;
 function vistaSemana() {
   const d = hoy();
   const E = estado(iso(d));
   let h = `<header class="top"><h1 class="big">Semana</h1><p class="chip">${chipBloque(E)}</p></header>`;
-  if (E.descarga) h += '<div class="aviso"><b>Semana de descarga:</b> la mitad de las series y el viernes zona 2.</div>';
-
   const dias = diasSemana(d);
-  if (dias.some(movido)) h += '<button type="button" class="cambiar" data-accion="restaurar">↺ Volver la semana al orden original</button>';
+
+  if (propuesta) {
+    const seg = seguidosEn(propuesta);
+    h += `<section class="c propuesta"><p class="k azul">Así queda la semana</p>
+      <p class="chico mut">${esc(textoCambios(propuesta) || 'Sin otros cambios.')}</p>
+      ${seg.length ? `<p class="chico warn">⚠︎ Quedan días fuertes seguidos: ${esc(seg.join(', '))}.</p>` : ''}
+      <div class="dos"><button type="button" class="secund" data-accion="cancelar-prop">Cancelar</button><button type="button" class="secund confirmar" data-accion="confirmar-prop">Confirmar</button></div>
+    </section>`;
+    propuesta.dias.forEach((fISO, i) => {
+      const k = propuesta.despues[i];
+      const cambia = k !== propuesta.antes[i];
+      h += `<div class="dia prev-dia${cambia ? ' cambia' : ''}${fISO === propuesta.destino ? ' destino-fijo' : ''}">
+        <span class="dn">${DIAS[parseISO(fISO).getDay()]}${fISO === propuesta.destino ? ' 📌' : ''}</span>
+        <span class="dt">${esc(titulo(k))}${cambia ? ` <span class="antes">antes ${esc(P.sesiones[propuesta.antes[i]].corto)}</span>` : ''}</span>
+      </div>`;
+    });
+    return h;
+  }
+
+  if (E.descarga) h += '<div class="aviso"><b>Semana de descarga:</b> la mitad de las series y el viernes zona 2.</div>';
+  h += '<p class="mut chico ayuda">Mantené apretado ⋮⋮ y arrastrá una actividad a otro día. El resto se reacomoda solo.</p>';
+  if (dias.some((f) => movido(f) || fijado(f))) h += '<button type="button" class="cambiar" data-accion="restaurar">↺ Volver la semana al orden original</button>';
 
   dias.forEach((f) => {
     const dia = f.getDay();
+    const fISO = iso(f);
     const S = armarSesion(f);
-    const esHoy = iso(f) === iso(d);
+    const esHoy = fISO === iso(d);
+    const bloq = bloqueado(f);
     const prevD = addDays(f, -1);
     const seguidos = pesada(f) && pesada(prevD) && (movido(f) || movido(prevD));
-    h += `<details class="dia${esHoy ? ' hoy' : ''}${iso(f) < iso(d) ? ' pasado' : ''}" data-dia="${dia}"${diaAbierto === dia ? ' open' : ''}>
+    h += `<details class="dia${esHoy ? ' hoy' : ''}${bloq ? ' bloq' : ''}${fISO < iso(d) ? ' pasado' : ''}" data-dia="${dia}" data-fecha="${fISO}"${diaAbierto === dia ? ' open' : ''}>
       <summary>
-        <span class="dn">${DIAS[dia]}${esHoy ? ' <em>hoy</em>' : ''}${hechoEl(f) ? ' <span class="tag ok">✓</span>' : ''}${movido(f) ? ' <span class="tag">movido</span>' : ''}</span>
+        ${bloq ? '<span class="asa off" aria-hidden="true"></span>' : `<span class="asa" data-asa="${fISO}" role="button" aria-label="Arrastrar ${esc(S.s.titulo)}">⋮⋮</span>`}
+        <span class="dn">${DIAS[dia]}${esHoy ? ' <em>hoy</em>' : ''}${hechoEl(f) ? ' <span class="tag ok">✓</span>' : ''}${fijado(f) ? ' <span class="tag">📌 fijo</span>' : movido(f) ? ' <span class="tag">movido</span>' : ''}</span>
         <span class="dt">${esc(S.s.titulo)}${seguidos ? ' <span class="warn">⚠︎ 2 días fuertes seguidos</span>' : ''}</span>
         <span class="dd">${esc(S.s.duracion || '')}</span>
       </summary>
       <div class="dia-body">
-        <div class="mover"><span class="meta">Mover a:</span>${dias.filter((g) => g !== f).map((g) => `<button type="button" data-mover="${iso(f)}|${iso(g)}">${DIAS[g.getDay()].slice(0, 3)}</button>`).join('')}</div>
+        ${bloq ? '' : `<div class="mover"><span class="meta">Mover a:</span>${dias.filter((g) => g !== f && !bloqueado(g)).map((g) => `<button type="button" data-mover="${fISO}|${iso(g)}">${DIAS[g.getDay()].slice(0, 3)}</button>`).join('')}</div>`}
         ${S.s.sub ? `<p class="meta">${esc(S.s.sub)}</p>` : ''}${S.items.map((x) => cardVer(x, S.dISO)).join('')}
       </div>
     </details>`;
@@ -891,11 +978,12 @@ function tildarSerie(btn) {
 }
 
 document.addEventListener('click', (ev) => {
+  if (ev.target.closest('[data-asa]')) { ev.preventDefault(); return; }
   const el = ev.target.closest('button, summary');
   if (!el) return;
   const dISO = iso(hoy());
 
-  if (el.dataset.tab) { editarCheck = false; return render(el.dataset.tab); }
+  if (el.dataset.tab) { editarCheck = false; propuesta = null; return render(el.dataset.tab); }
 
   // técnica del ejercicio
   if (el.classList.contains('nombre')) {
@@ -937,16 +1025,12 @@ document.addEventListener('click', (ev) => {
   if (el.dataset.sesion) {
     const msg = cambiarDia(hoy(), el.dataset.sesion);
     render('inicio');
-    toast(msg || 'Listo, cambiado');
+    toast(msg ? `Semana reacomodada: ${msg}` : 'Listo, cambiado');
     return;
   }
   if (el.dataset.mover) {
     const [a, b] = el.dataset.mover.split('|').map(parseISO);
-    moverDia(a, b);
-    diaAbierto = b.getDay();
-    render('semana', true);
-    toast(`Intercambiados ${diaNombre(a)} y ${diaNombre(b)}`);
-    return;
+    return proponer(a, b);
   }
 
   const acc = el.dataset.accion;
@@ -969,6 +1053,8 @@ document.addEventListener('click', (ev) => {
   }
   if (acc === 'resumen') return render('resumen');
   if (acc === 'reabrir') { if (ent) { delete ent.fin; save(); } return render('entreno'); }
+  if (acc === 'confirmar-prop') { aplicar(propuesta); const m = textoCambios(propuesta); propuesta = null; render('semana', true); return toast(m ? `Listo: ${m}` : 'Listo'); }
+  if (acc === 'cancelar-prop') { propuesta = null; return render('semana', true); }
   if (acc === 'restaurar') { restaurarSemana(hoy()); render('semana', true); return toast('Semana restaurada'); }
   if (acc === 'deshacer') { (DB.prot[dISO] || []).pop(); save(); return render('nutri', true); }
   if (acc === 'crea') { DB.crea[dISO] = !DB.crea[dISO]; save(); return render('nutri', true); }
@@ -976,6 +1062,54 @@ document.addEventListener('click', (ev) => {
   if (acc === 'exportar') return exportar();
   if (acc === 'importar') return $('#archivo').click();
 });
+
+// ---------- arrastrar días en la semana ----------
+function proponer(a, b) {
+  if (iso(a) === iso(b) || bloqueado(b)) return;
+  propuesta = reorganizar(b, claveDe(a), a);
+  render('semana');
+}
+let arrastre = null;
+document.addEventListener('pointerdown', (ev) => {
+  const asa = ev.target.closest('[data-asa]');
+  if (!asa) return;
+  ev.preventDefault();
+  const fila = asa.closest('.dia');
+  const r = fila.getBoundingClientRect();
+  const fantasma = fila.cloneNode(true);
+  fantasma.removeAttribute('open');
+  fantasma.classList.add('fantasma');
+  Object.assign(fantasma.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` });
+  document.body.appendChild(fantasma);
+  fila.classList.add('origen');
+  arrastre = { desde: asa.dataset.asa, fantasma, dy: ev.clientY - r.top, destino: null };
+  try { asa.setPointerCapture(ev.pointerId); } catch (e) { /* nada */ }
+  try { navigator.vibrate && navigator.vibrate(15); } catch (e) { /* nada */ }
+});
+document.addEventListener('pointermove', (ev) => {
+  if (!arrastre) return;
+  ev.preventDefault();
+  arrastre.fantasma.style.top = `${ev.clientY - arrastre.dy}px`;
+  const bajo = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.dia[data-fecha]');
+  document.querySelectorAll('.dia.destino').forEach((x) => x.classList.remove('destino'));
+  arrastre.destino = null;
+  if (bajo && !bajo.classList.contains('bloq') && bajo.dataset.fecha !== arrastre.desde) {
+    bajo.classList.add('destino');
+    arrastre.destino = bajo.dataset.fecha;
+  }
+  if (ev.clientY < 90) window.scrollBy(0, -10);
+  else if (ev.clientY > window.innerHeight - 110) window.scrollBy(0, 10);
+}, { passive: false });
+function finArrastre() {
+  if (!arrastre) return;
+  const { desde, destino, fantasma } = arrastre;
+  arrastre = null;
+  fantasma.remove();
+  document.querySelectorAll('.dia.origen, .dia.destino').forEach((x) => x.classList.remove('origen', 'destino'));
+  if (destino) proponer(parseISO(desde), parseISO(destino));
+}
+document.addEventListener('pointerup', finArrastre);
+document.addEventListener('pointercancel', finArrastre);
 
 document.addEventListener('toggle', (ev) => {
   const d = ev.target;

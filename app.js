@@ -189,6 +189,7 @@ function armarSesion(d, lugar = lugarDe(iso(d))) {
   const s = P.sesiones[clave];
   const casa = lugar === 'casa';
   const mitad = E.descarga || (E.fase === 'plan' && E.b.volumenBajo);
+  const cambios = DB.entrenos[dISO]?.cambios || {};
   // En casa los pesos van aparte del gimnasio (otras mancuernas, otra progresión).
   const listo = (x) => Object.assign(x, { logId: casa && !x.sinPeso ? `${x.id}@casa` : x.id, enCasa: casa });
   const items = [];
@@ -210,9 +211,16 @@ function armarSesion(d, lugar = lugarDe(iso(d))) {
       P.movilidad.forEach((m) => items.push(listo({ id: 'mov-' + m.id, nombre: m.nombre, series: 1, texto: m.dosis, sinPeso: true, fijo: true })));
       continue;
     }
-    let x = { ...it, ...((E.b.ajustes || {})[it.id] || {}) };
-    if (casa && it.casa) x = { ...x, ...it.casa, reemplaza: it.nombre };
+    let x = { ...it, ...((E.b.ajustes || {})[it.id] || {}), base: it.id };
+    // Opción elegida en el momento (orig / alt / casa); si no, en casa va la versión de casa.
+    const eleg = cambios[it.id] || (casa && it.casa ? 'casa' : 'orig');
+    const var_ = eleg === 'alt' ? it.alt : eleg === 'casa' ? it.casa : null;
+    if (var_) x = { ...x, ...var_, reemplaza: it.nombre };
+    x.eleccion = var_ ? eleg : 'orig';
+    x.opciones = [['orig', it.nombre], ['alt', it.alt?.nombre], ['casa', it.casa?.nombre]]
+      .filter(([k, n]) => n && k !== x.eleccion && !(k === 'casa' && it.casa?.nombre === it.alt?.nombre && it.alt));
     delete x.casa;
+    delete x.alt;
     if (mitad && !x.fijo && x.series > 1) x.series = Math.ceil(x.series / 2);
     items.push(listo(x));
   }
@@ -300,27 +308,6 @@ function totales(dISO) {
 const fmtC = (c) => ({ 0.5: '½', 1.5: '1½' }[c] || fmt(c));
 const sinTildes = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-// ---------- recuperación (check de la mañana) ----------
-const CHECK = [
-  { id: 'sueno', t: 'Sueño', ops: ['Mal', 'Normal', 'Bien'] },
-  { id: 'energia', t: 'Energía', ops: ['Baja', 'Normal', 'Alta'] },
-  { id: 'mareo', t: 'Mareo o síntomas', ops: ['Sí', 'Algo', 'Nada'] },
-];
-function puntaje(c) {
-  if (!c || CHECK.some((q) => c[q.id] == null)) return null;
-  let p = Math.round(((c.sueno + c.energia + c.mareo) / 6) * 100);
-  if (c.mareo === 0) p = Math.min(p, 30); // con mareo, nunca verde
-  return p;
-}
-const zona = (p) => (p == null ? null : p >= 67 ? 'verde' : p >= 34 ? 'amarillo' : 'rojo');
-const COLOR = { verde: 'var(--ok)', amarillo: 'var(--warn)', rojo: 'var(--bad)' };
-const RECO = {
-  verde: 'Estás para entrenar normal.',
-  amarillo: 'Primera ronda al 70 % y escuchá el cuerpo. Si no levanta, sacá una serie por ejercicio.',
-  rojo: 'Hoy mejor zona 2 suave o descanso. Si el mareo sigue, consultá al médico.',
-};
-let editarCheck = false;
-
 function dial(frac, color, centro, label, accion) {
   const r = 31;
   const c = 2 * Math.PI * r;
@@ -332,6 +319,8 @@ function dial(frac, color, centro, label, accion) {
 }
 
 // ---------- pantalla: INICIO ----------
+const colorDe = (k) => P.sesiones[k].color || 'var(--acc)';
+const tipoNombre = (s) => ({ fuerza: 'Fuerza', cardio: 'Cardio', descanso: 'Descanso' }[s.tipo] || '');
 function vistaInicio() {
   const d = hoy();
   const dISO = iso(d);
@@ -340,32 +329,22 @@ function vistaInicio() {
   const ent = DB.entrenos[dISO];
   const ejercicios = ejerciciosDe(S);
   const hechos = ejercicios.filter((x) => completo(x, dISO)).length;
-  const c = DB.check[dISO];
-  const p = puntaje(c);
-  const z = zona(p);
-  const prot = totales(dISO).prot;
-  const meta = P.nutricion.proteinaMeta;
+  const { prot, kcal } = totales(dISO);
+  const metaP = P.nutricion.proteinaMeta;
+  const metaK = E.b.macros?.kcal;
 
   let h = `<header class="ini-top"><span class="k fuerte">Hoy · ${esc(fechaMedia(d))}</span><span class="k">${chipBloque(E)}</span></header>`;
-
-  if (p == null || editarCheck) {
-    h += `<section class="c check"><p class="k">¿Cómo llegás hoy?</p>${CHECK.map((q) => `<div class="q"><span>${q.t}</span><div class="ops">${q.ops.map((o, v) => `<button type="button" class="op${c?.[q.id] === v ? ' on' : ''}" data-check="${q.id}" data-v="${v}">${o}</button>`).join('')}</div></div>`).join('')}</section>`;
-  }
-
   h += `<div class="diales">
-    ${dial(p == null ? 0 : p / 100, z ? COLOR[z] : 'var(--line)', p == null ? '—' : `${p}%`, 'Recuperación', 'data-accion="check"')}
-    ${dial(ejercicios.length ? hechos / ejercicios.length : 0, 'var(--acc)', `${hechos}/${ejercicios.length}`, 'Sesión', '')}
-    ${dial(prot / meta, 'var(--prot)', `${prot}g`, 'Proteína', 'data-tab="nutri"')}
+    ${dial(ejercicios.length ? hechos / ejercicios.length : 0, colorDe(clave), `${hechos}/${ejercicios.length}`, 'Sesión', ent?.inicio && !ent.fin ? 'data-accion="continuar"' : '')}
+    ${dial(prot / metaP, 'var(--prot)', `${prot}g`, 'Proteína', 'data-tab="nutri"')}
+    ${dial(metaK ? kcal / metaK : 0, 'var(--kcal)', kcal >= 1000 ? `${fmt(kcal / 1000)}k` : `${kcal}`, 'Kcal', 'data-tab="nutri"')}
   </div>`;
-
-  if (z) {
-    h += `<p class="reco" style="--z:${COLOR[z]}">${esc(RECO[z])}</p>`;
-    if (z === 'rojo' && !['z2', 'domingo'].includes(clave) && !ent?.inicio) h += '<button type="button" class="link" data-sesion="z2">Cambiar hoy por zona 2 →</button>';
-  }
-
   h += avisoUnico(d, E, clave);
+  h += `<p class="titulo-sec" style="--tc:${colorDe(clave)}">Hoy entrenás</p>`;
   h += tarjetaSesion(S, ent, hechos, ejercicios.length);
+  h += '<p class="titulo-sec">Tu semana</p>';
   h += tiraSemana(d);
+  h += '<p class="titulo-sec" style="--tc:var(--ok)">Peso</p>';
   h += tarjetaPeso(dISO);
   return h;
 }
@@ -374,14 +353,12 @@ function vistaInicio() {
 function avisoUnico(d, E, clave) {
   const dISO = iso(d);
   const t = P.tests.fechas.find((x) => dISO >= x.fecha && dISO <= iso(addDays(parseISO(x.fecha), 6)));
-  const bajos = rango(7).map((i) => puntaje(DB.check[iso(addDays(d, -i))])).filter((p) => p != null && p < 50).length;
   let a = null;
   if (E.fase === 'antes') a = `El plan arranca el ${fechaCorta(P.bloques[0].desde)}.`;
   else if (E.descarga) a = `<b>Semana de descarga:</b> la mitad de las series${clave === 'viernes' ? ' y hoy zona 2 en vez de intervalos' : ''}.`;
   else if (E.fase === 'plan' && E.b.volumenBajo) a = esc(E.b.aviso);
   else if (t && !testCompleto(t.id)) a = `<button type="button" class="link" data-tab="progreso">📏 Semana de tests: cargalos en Progreso →</button>`;
   else if (avisoSeguidos(d)) a = `⚠︎ ${esc(avisoSeguidos(d))} Si llegás cargado, cambiá uno por zona 2.`;
-  else if (bajos >= 3) a = 'Venís con varios días de recuperación baja: considerá adelantar la descarga.';
   return a ? `<div class="aviso">${a}</div>` : '';
 }
 
@@ -390,8 +367,8 @@ function tarjetaSesion(S, ent, hechos, total) {
   const d = parseISO(dISO);
   const entrena = s.tipo === 'fuerza' || s.tipo === 'cardio';
   const tieneCasa = s.items.some((it) => it.casa) || clave === 'viernes';
-  let h = `<section class="c sesion">
-    <div class="fila-k"><span class="k">Sesión de hoy${movido(d) ? ' · movida' : ''}</span>${ent?.inicio ? `<span class="k">${lugar === 'casa' ? '🏠 Casa' : '🏋️ Gimnasio'}</span>` : ''}</div>
+  let h = `<section class="c sesion" style="--sc:${colorDe(clave)}">
+    <div class="fila-k"><span class="k tipo-k">${esc(tipoNombre(s))}${movido(d) ? ' · movida' : ''}</span>${ent?.inicio ? `<span class="k">${lugar === 'casa' ? '🏠 Casa' : '🏋️ Gimnasio'}</span>` : ''}</div>
     <h2 class="big">${esc(s.titulo)}</h2>
     <p class="mut">${esc([s.duracion, total > 1 ? `${total} ejercicios` : s.sub].filter(Boolean).join(' · '))}</p>`;
 
@@ -425,11 +402,11 @@ function tarjetaSesion(S, ent, hechos, total) {
 function tiraSemana(d) {
   const dISO = iso(d);
   return `<button type="button" class="c tira" data-tab="semana">
-    <span class="fila-k"><span class="k">Semana</span><span class="k">Ver →</span></span>
+    <span class="fila-k"><span class="k">${diasSemana(d).filter(hechoEl).length} de 7 días con registro</span><span class="k">Ver →</span></span>
     <span class="dias7">${diasSemana(d).map((f) => {
       const fISO = iso(f);
       const est = hechoEl(f) ? 'ok' : fISO === dISO ? 'hoy' : fISO < dISO ? 'pasado' : '';
-      return `<span class="d7 ${est}"><span class="l">${DIAS[f.getDay()][0]}</span><span class="pt">${est === 'ok' ? '✓' : ''}</span><span class="s">${esc(P.sesiones[claveDe(f)].corto || '')}</span></span>`;
+      return `<span class="d7 ${est}" style="--sc:${colorDe(claveDe(f))}"><span class="l">${DIAS[f.getDay()][0]}</span><span class="pt">${est === 'ok' ? '✓' : ''}</span><span class="s">${esc(P.sesiones[claveDe(f)].corto || '')}</span></span>`;
     }).join('')}</span>
   </button>`;
 }
@@ -502,6 +479,10 @@ function bloqueActual(x, dISO) {
     ${meta ? `<p class="meta">${meta}</p>` : ''}
     ${tec ? `<div class="tec" hidden>${tecHTML(tec)}</div>` : ''}
     ${x.lista ? listaHTML(x) : ''}`;
+  if (x.opciones?.length) {
+    h += `<button type="button" class="link chico" data-accion="ver-opciones">⇄ Cambiar ejercicio</button>
+      <div class="opc-ej" hidden>${x.opciones.map(([k, n]) => `<button type="button" class="secund" data-opcion="${esc(x.base)}|${k}">${k === 'orig' ? '↺ ' : ''}${esc(n)}</button>`).join('')}</div>`;
+  }
   if (sug) h += `<p class="sube">⬆︎ ${sug.w ? `Hoy subí a <b>${esc(sug.w)} kg</b> <small>(antes ${esc(sug.antes)})</small>` : esc(sug.txt)}</p>`;
 
   if (!x.sinPeso) {
@@ -614,7 +595,7 @@ function vistaSemana() {
   }
 
   if (E.descarga) h += '<div class="aviso"><b>Semana de descarga:</b> la mitad de las series y el viernes zona 2.</div>';
-  h += '<p class="mut chico ayuda">Mantené apretado ⋮⋮ y arrastrá una actividad a otro día. El resto se reacomoda solo.</p>';
+  h += '<p class="mut chico ayuda">Mantené apretado un día y arrastralo a otro. El resto se reacomoda solo. Tocá un día para ver sus ejercicios.</p>';
   if (dias.some((f) => movido(f) || fijado(f))) h += '<button type="button" class="cambiar" data-accion="restaurar">↺ Volver la semana al orden original</button>';
 
   dias.forEach((f) => {
@@ -625,18 +606,19 @@ function vistaSemana() {
     const bloq = bloqueado(f);
     const prevD = addDays(f, -1);
     const seguidos = pesada(f) && pesada(prevD) && (movido(f) || movido(prevD));
-    h += `<details class="dia${esHoy ? ' hoy' : ''}${bloq ? ' bloq' : ''}${fISO < iso(d) ? ' pasado' : ''}" data-dia="${dia}" data-fecha="${fISO}"${diaAbierto === dia ? ' open' : ''}>
-      <summary>
-        ${bloq ? '<span class="asa off" aria-hidden="true"></span>' : `<span class="asa" data-asa="${fISO}" role="button" aria-label="Arrastrar ${esc(S.s.titulo)}">⋮⋮</span>`}
+    const abierto = diaAbierto === dia;
+    h += `<div class="dia${esHoy ? ' hoy' : ''}${bloq ? ' bloq' : ''}${fISO < iso(d) ? ' pasado' : ''}" data-dia="${dia}" data-fecha="${fISO}" style="--sc:${colorDe(S.clave)}">
+      <div class="dia-fila"${bloq ? '' : ` data-arr="${fISO}"`} data-abrir="${dia}">
+        ${bloq ? '<span class="asa off" aria-hidden="true"></span>' : `<span class="asa" aria-hidden="true">⋮⋮</span>`}
         <span class="dn">${DIAS[dia]}${esHoy ? ' <em>hoy</em>' : ''}${hechoEl(f) ? ' <span class="tag ok">✓</span>' : ''}${fijado(f) ? ' <span class="tag">📌 fijo</span>' : movido(f) ? ' <span class="tag">movido</span>' : ''}</span>
-        <span class="dt">${esc(S.s.titulo)}${seguidos ? ' <span class="warn">⚠︎ 2 días fuertes seguidos</span>' : ''}</span>
+        <span class="dt"><span class="tipo-k">${esc(tipoNombre(S.s))}</span> ${esc(S.s.titulo)}${seguidos ? ' <span class="warn">⚠︎ 2 fuertes seguidos</span>' : ''}</span>
         <span class="dd">${esc(S.s.duracion || '')}</span>
-      </summary>
-      <div class="dia-body">
+      </div>
+      <div class="dia-body"${abierto ? '' : ' hidden'}>
         ${bloq ? '' : `<div class="mover"><span class="meta">Mover a:</span>${dias.filter((g) => g !== f && !bloqueado(g)).map((g) => `<button type="button" data-mover="${fISO}|${iso(g)}">${DIAS[g.getDay()].slice(0, 3)}</button>`).join('')}</div>`}
         ${S.s.sub ? `<p class="meta">${esc(S.s.sub)}</p>` : ''}${S.items.map((x) => cardVer(x, S.dISO)).join('')}
       </div>
-    </details>`;
+    </div>`;
   });
 
   h += '<h2>Bloques</h2>';
@@ -654,7 +636,6 @@ function vistaSemana() {
 }
 
 // ---------- pantalla: COMIDA ----------
-let pickerAbierto = false;
 let catSel = null;
 let aliSel = null;
 
@@ -662,6 +643,25 @@ function frecuentes() {
   const cuenta = {};
   Object.values(DB.comida).forEach((l) => l.forEach((e) => { cuenta[e.id] = (cuenta[e.id] || 0) + 1; }));
   return Object.keys(cuenta).filter((id) => ALI[id]).sort((a, b) => cuenta[b] - cuenta[a]).slice(0, 8);
+}
+
+let pickerMom = null; // momento del día donde se está agregando
+function picker() {
+  const frec = frecuentes();
+  const cat = catSel || (frec.length ? 'Frecuentes' : P.alimentosCats[0]);
+  const cats = (frec.length ? ['Frecuentes'] : []).concat(P.alimentosCats);
+  const lista = cat === 'Frecuentes' ? frec.map((id) => ALI[id]) : P.alimentos.filter((a) => a.cat === cat);
+  return `<div class="picker">
+    <input id="buscar" type="search" placeholder="Buscar: huevo, pollo, pizza…" autocomplete="off" aria-label="Buscar alimento">
+    <div class="segmentos chico" id="cats">${cats.map((c) => `<button type="button" class="${c === cat ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+    <ul class="ali-lista" id="ali-lista">${P.alimentos.map((a) => {
+      const visible = lista.includes(a);
+      return `<li data-n="${esc(sinTildes(a.nombre))}" data-vis="${visible ? 1 : 0}"${visible ? '' : ' hidden'}>
+        <button type="button" class="ali" data-ali="${a.id}"><span><b>${esc(a.nombre)}</b><small>${esc(a.porcion)}</small></span><span class="mut">${fmt(a.prot)} g · ${a.kcal} kcal</span></button>
+        ${aliSel === a.id ? `<div class="cant"><span class="k">¿Cuánto?</span>${[0.5, 1, 1.5, 2, 3].map((c) => `<button type="button" data-add="${a.id}|${c}">${fmtC(c)}</button>`).join('')}</div>` : ''}
+      </li>`;
+    }).join('')}</ul>
+  </div>`;
 }
 
 function vistaNutri() {
@@ -676,10 +676,36 @@ function vistaNutri() {
   const pctP = Math.min(100, (prot / metaP) * 100);
   const pctK = metaK ? Math.min(100, (kcal / metaK) * 100) : 0;
   const pasado = metaK && kcal > metaK * 1.05;
+  const lista = DB.comida[dISO] || [];
+  const momIds = P.momentos.map((x) => x.id);
 
-  let h = `<header class="top"><h1 class="big">Comida</h1><p class="chip">${chipBloque(E)}</p></header>`;
+  let h = `<header class="top"><h1 class="big">Comida</h1><p class="chip">${chipBloque(E)} · ${prot} g · ${fmt(kcal, 0)} kcal</p></header>`;
 
-  h += `<section class="c">
+  for (const mo of P.momentos) {
+    // lo cargado sin momento (versión anterior) va a Extras
+    const items = lista.map((e, i) => ({ e, i })).filter(({ e }) => (momIds.includes(e.m) ? e.m : 'extras') === mo.id && ALI[e.id]);
+    const rapidas = mo.id === 'extras' ? DB.prot[dISO] || [] : [];
+    let p = rapidas.reduce((a, b) => a + b, 0);
+    let k = 0;
+    items.forEach(({ e }) => { p += ALI[e.id].prot * e.c; k += ALI[e.id].kcal * e.c; });
+    const tipo = mo.tipo != null ? P.comidasTipo[mo.tipo] : null;
+    const abierto = pickerMom === mo.id;
+    h += `<section class="c momento" style="--mc:${mo.color}">
+      <div class="mom-top"><span class="mom-n">${esc(mo.nombre)}</span><span class="mut">${items.length || rapidas.length ? `${Math.round(p)} g · ${Math.round(k)} kcal` : 'vacío'}</span></div>
+      ${items.map(({ e, i }) => {
+        const a = ALI[e.id];
+        return `<div class="item-c"><span><b>${esc(a.nombre)}</b><small>${fmtC(e.c)} × ${esc(a.porcion)}</small></span><span class="mut">${Math.round(a.prot * e.c)} g · ${Math.round(a.kcal * e.c)}</span><button type="button" class="x" data-borrar="${i}" aria-label="Borrar">✕</button></div>`;
+      }).join('')}
+      ${rapidas.map((g, i) => `<div class="item-c"><span><b>Carga rápida</b><small>versión anterior</small></span><span class="mut">${g} g</span><button type="button" class="x" data-borrar-prot="${i}" aria-label="Borrar">✕</button></div>`).join('')}
+      <div class="mom-acc">
+        ${tipo && !items.length ? `<button type="button" class="secund" data-tipo="${mo.tipo}" data-mom="${mo.id}">Cargar ${esc(mo.nombre.toLowerCase())} tipo</button>` : ''}
+        <button type="button" class="secund${abierto ? ' on-mom' : ''}" data-picker="${mo.id}">${abierto ? 'Listo' : '+ Alimento'}</button>
+      </div>
+      ${abierto ? picker() : ''}
+    </section>`;
+  }
+
+  h += `<p class="titulo-sec" style="--tc:var(--prot)">Resumen del día</p><section class="c">
     <div class="macro"><span class="k">Proteína</span><span><b class="big">${prot}</b> <span class="mut">/ ${metaP} g</span></span></div>
     <div class="bar${prot >= metaP ? ' llena' : ''}"><span style="width:${pctP}%"></span></div>
     <div class="macro"><span class="k">Calorías</span><span><b class="big">${fmt(kcal, 0)}</b> <span class="mut">${metaK ? `/ ${fmt(metaK, 0)}` : 'mantenimiento'}</span></span></div>
@@ -688,42 +714,7 @@ function vistaNutri() {
     <button type="button" class="check-foto mini${DB.crea[dISO] ? ' on' : ''}" data-accion="crea">${DB.crea[dISO] ? '✓ Creatina tomada' : '○ Creatina 5 g'}</button>
   </section>`;
 
-  h += `<p class="k sec">Comidas tipo</p><div class="tipos">${P.comidasTipo.map((c, i) => {
-    let p = 0; let k = 0;
-    c.items.forEach(([id, n]) => { p += ALI[id].prot * n; k += ALI[id].kcal * n; });
-    return `<button type="button" class="tipo" data-tipo="${i}"><b>${esc(c.nombre.replace(' tipo', ''))}</b><small>${Math.round(p)} g · ${k} kcal</small></button>`;
-  }).join('')}</div>`;
-
-  h += `<button type="button" class="primario${pickerAbierto ? ' gris' : ''}" data-accion="picker">${pickerAbierto ? 'Cerrar' : '+ Agregar alimento'}</button>`;
-  if (pickerAbierto) {
-    const frec = frecuentes();
-    const cat = catSel || (frec.length ? 'Frecuentes' : P.alimentosCats[0]);
-    const cats = (frec.length ? ['Frecuentes'] : []).concat(P.alimentosCats);
-    const lista = cat === 'Frecuentes' ? frec.map((id) => ALI[id]) : P.alimentos.filter((a) => a.cat === cat);
-    h += `<section class="c picker">
-      <input id="buscar" type="search" placeholder="Buscar: huevo, pollo, pizza…" autocomplete="off" aria-label="Buscar alimento">
-      <div class="segmentos chico" id="cats">${cats.map((c) => `<button type="button" class="${c === cat ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div>
-      <ul class="ali-lista" id="ali-lista">${P.alimentos.map((a) => {
-        const visible = lista.includes(a);
-        return `<li data-n="${esc(sinTildes(a.nombre))}" data-vis="${visible ? 1 : 0}"${visible ? '' : ' hidden'}>
-          <button type="button" class="ali" data-ali="${a.id}"><span><b>${esc(a.nombre)}</b><small>${esc(a.porcion)}</small></span><span class="mut">${fmt(a.prot)} g · ${a.kcal} kcal</span></button>
-          ${aliSel === a.id ? `<div class="cant"><span class="k">¿Cuánto?</span>${[0.5, 1, 1.5, 2, 3].map((c) => `<button type="button" data-add="${a.id}|${c}">${fmtC(c)}</button>`).join('')}</div>` : ''}
-        </li>`;
-      }).join('')}</ul>
-    </section>`;
-  }
-
-  const hoyL = DB.comida[dISO] || [];
-  const rapidas = DB.prot[dISO] || [];
-  if (hoyL.length || rapidas.length) {
-    h += `<p class="k sec">Hoy comiste</p><section class="c lista-hoy">${hoyL.map((e, i) => {
-      const a = ALI[e.id];
-      if (!a) return '';
-      return `<div class="item-c"><span><b>${esc(a.nombre)}</b><small>${fmtC(e.c)} × ${esc(a.porcion)}</small></span><span class="mut">${Math.round(a.prot * e.c)} g · ${Math.round(a.kcal * e.c)}</span><button type="button" class="x" data-borrar="${i}" aria-label="Borrar">✕</button></div>`;
-    }).join('')}${rapidas.map((g, i) => `<div class="item-c"><span><b>Carga rápida</b><small>versión anterior</small></span><span class="mut">${g} g</span><button type="button" class="x" data-borrar-prot="${i}" aria-label="Borrar">✕</button></div>`).join('')}</section>`;
-  }
-
-  h += '<p class="k sec">Guía</p>';
+  h += '<p class="titulo-sec" style="--tc:var(--mut)">Guía</p>';
   if (m) {
     h += `<details class="card plegable"><summary><h3>Macros · ${esc(E.b.etiqueta)}</h3></summary>
       <div class="tiles">
@@ -1154,12 +1145,20 @@ function tildarSerie(btn) {
 }
 
 document.addEventListener('click', (ev) => {
-  if (ev.target.closest('[data-asa]')) { ev.preventDefault(); return; }
+  if (sinClick) { sinClick = false; ev.preventDefault(); return; }
+  const filaDia = ev.target.closest('[data-abrir]');
+  if (filaDia) {
+    const dia = +filaDia.dataset.abrir;
+    const body = filaDia.parentElement.querySelector('.dia-body');
+    body.hidden = !body.hidden;
+    diaAbierto = body.hidden ? null : dia;
+    return;
+  }
   const el = ev.target.closest('button, summary');
   if (!el) return;
   const dISO = iso(hoy());
 
-  if (el.dataset.tab) { editarCheck = false; propuesta = null; return render(el.dataset.tab); }
+  if (el.dataset.tab) { propuesta = null; return render(el.dataset.tab); }
 
   // técnica del ejercicio
   if (el.classList.contains('nombre')) {
@@ -1180,19 +1179,23 @@ document.addEventListener('click', (ev) => {
     return irAlActual();
   }
 
-  if (el.dataset.check) {
-    const c = (DB.check[dISO] ||= {});
-    c[el.dataset.check] = +el.dataset.v;
+  if (el.dataset.opcion) {
+    const [base, k] = el.dataset.opcion.split('|');
+    const ent = DB.entrenos[dISO];
+    (ent.cambios ||= {})[base] = k;
+    const nuevo = ejerciciosDe(armarSesion(hoy())).find((x) => x.base === base);
+    if (nuevo) ent.actual = nuevo.logId;
     save();
-    if (puntaje(c) != null) editarCheck = false;
-    return render('inicio', true);
+    render('entreno', true);
+    irAlActual();
+    return toast(`Cambiado por: ${nuevo?.nombre || ''}`);
   }
   if (el.dataset.lugar) { lugarSel = el.dataset.lugar; return render('inicio', true); }
 
   if (el.dataset.ali) { aliSel = aliSel === el.dataset.ali ? null : el.dataset.ali; const q = $('#buscar')?.value || ''; render('nutri', true); if (q) { $('#buscar').value = q; filtrarAlimentos(q); } return; }
   if (el.dataset.add) {
     const [id, c] = el.dataset.add.split('|');
-    (DB.comida[dISO] ||= []).push({ id, c: +c, t: Date.now() });
+    (DB.comida[dISO] ||= []).push({ id, c: +c, m: pickerMom || 'extras', t: Date.now() });
     save();
     aliSel = null;
     render('nutri', true);
@@ -1200,13 +1203,14 @@ document.addEventListener('click', (ev) => {
   }
   if (el.dataset.tipo) {
     const c = P.comidasTipo[+el.dataset.tipo];
-    c.items.forEach(([id, n]) => (DB.comida[dISO] ||= []).push({ id, c: n, t: Date.now() }));
+    c.items.forEach(([id, n]) => (DB.comida[dISO] ||= []).push({ id, c: n, m: el.dataset.mom, t: Date.now() }));
     save();
     render('nutri', true);
     return toast(`Agregado: ${c.nombre}`);
   }
   if (el.dataset.borrar) { (DB.comida[dISO] || []).splice(+el.dataset.borrar, 1); save(); return render('nutri', true); }
   if (el.dataset.borrarProt) { (DB.prot[dISO] || []).splice(+el.dataset.borrarProt, 1); save(); return render('nutri', true); }
+  if (el.dataset.picker) { pickerMom = pickerMom === el.dataset.picker ? null : el.dataset.picker; aliSel = null; catSel = null; return render('nutri', true); }
   if (el.dataset.cat) { catSel = el.dataset.cat; aliSel = null; return render('nutri', true); }
 
   if (el.dataset.test) { testSel = el.dataset.test; return render('progreso', true); }
@@ -1226,7 +1230,7 @@ document.addEventListener('click', (ev) => {
   const acc = el.dataset.accion;
   if (!acc) return;
   const ent = DB.entrenos[dISO];
-  if (acc === 'check') { editarCheck = !editarCheck; return render('inicio', true); }
+  if (acc === 'ver-opciones') { const o = el.nextElementSibling; o.hidden = !o.hidden; return; }
   if (acc === 'cambiar') { const o = $('#opciones'); o.hidden = !o.hidden; return; }
   if (acc === 'verlista') { const o = $('#prev'); o.hidden = !o.hidden; return; }
   if (acc === 'empezar') {
@@ -1246,7 +1250,7 @@ document.addEventListener('click', (ev) => {
   if (acc === 'confirmar-prop') { aplicar(propuesta); const m = textoCambios(propuesta); propuesta = null; render('semana', true); return toast(m ? `Listo: ${m}` : 'Listo'); }
   if (acc === 'cancelar-prop') { propuesta = null; return render('semana', true); }
   if (acc === 'restaurar') { restaurarSemana(hoy()); render('semana', true); return toast('Semana restaurada'); }
-  if (acc === 'picker') { pickerAbierto = !pickerAbierto; aliSel = null; return render('nutri', true); }
+
   if (acc === 'crea') { DB.crea[dISO] = !DB.crea[dISO]; save(); return render('nutri', true); }
   if (acc === 'foto') { const t = (DB.tests[testSel] ||= {}); t.foto = !t.foto; save(); return render('progreso', true); }
   if (acc === 'exportar') return exportar();
@@ -1260,54 +1264,65 @@ function proponer(a, b) {
   render('semana');
 }
 let arrastre = null;
-document.addEventListener('pointerdown', (ev) => {
-  const asa = ev.target.closest('[data-asa]');
-  if (!asa) return;
-  ev.preventDefault();
-  const fila = asa.closest('.dia');
+let espera = null; // toque en una fila que todavía no es arrastre
+let sinClick = false;
+function empezarArrastre(fila, desde, y) {
   const r = fila.getBoundingClientRect();
   const fantasma = fila.cloneNode(true);
-  fantasma.removeAttribute('open');
+  fantasma.querySelector('.dia-body')?.remove();
   fantasma.classList.add('fantasma');
   Object.assign(fantasma.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` });
   document.body.appendChild(fantasma);
   fila.classList.add('origen');
-  arrastre = { desde: asa.dataset.asa, fantasma, dy: ev.clientY - r.top, destino: null };
-  try { asa.setPointerCapture(ev.pointerId); } catch (e) { /* nada */ }
-  try { navigator.vibrate && navigator.vibrate(15); } catch (e) { /* nada */ }
+  arrastre = { desde, fantasma, dy: y - r.top, destino: null };
+  sinClick = true;
+  try { navigator.vibrate && navigator.vibrate(25); } catch (e) { /* nada */ }
+}
+document.addEventListener('pointerdown', (ev) => {
+  const zona = ev.target.closest('[data-arr]');
+  if (!zona || propuesta) return;
+  const fila = zona.closest('.dia');
+  const desde = zona.dataset.arr;
+  if (ev.target.closest('.asa')) { ev.preventDefault(); empezarArrastre(fila, desde, ev.clientY); return; }
+  const x0 = ev.clientX;
+  const y0 = ev.clientY;
+  espera = { x0, y0, t: setTimeout(() => { espera = null; empezarArrastre(fila, desde, y0); }, 350) };
 });
-document.addEventListener('pointermove', (ev) => {
-  if (!arrastre) return;
-  ev.preventDefault();
-  arrastre.fantasma.style.top = `${ev.clientY - arrastre.dy}px`;
-  const bajo = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.dia[data-fecha]');
-  document.querySelectorAll('.dia.destino').forEach((x) => x.classList.remove('destino'));
+function moverArrastre(x, y) {
+  arrastre.fantasma.style.top = `${y - arrastre.dy}px`;
+  const bajo = document.elementFromPoint(x, y)?.closest('.dia[data-fecha]');
+  document.querySelectorAll('.dia.destino').forEach((el) => el.classList.remove('destino'));
   arrastre.destino = null;
   if (bajo && !bajo.classList.contains('bloq') && bajo.dataset.fecha !== arrastre.desde) {
     bajo.classList.add('destino');
     arrastre.destino = bajo.dataset.fecha;
   }
-  if (ev.clientY < 90) window.scrollBy(0, -10);
-  else if (ev.clientY > window.innerHeight - 110) window.scrollBy(0, 10);
+  if (y < 90) window.scrollBy(0, -10);
+  else if (y > window.innerHeight - 110) window.scrollBy(0, 10);
+}
+document.addEventListener('pointermove', (ev) => {
+  if (espera && Math.hypot(ev.clientX - espera.x0, ev.clientY - espera.y0) > 10) { clearTimeout(espera.t); espera = null; }
+  if (!arrastre) return;
+  ev.preventDefault();
+  moverArrastre(ev.clientX, ev.clientY);
 }, { passive: false });
+// En iPhone, frenar el scroll mientras arrastrás.
+document.addEventListener('touchmove', (ev) => { if (arrastre) ev.preventDefault(); }, { passive: false });
 function finArrastre() {
+  if (espera) { clearTimeout(espera.t); espera = null; }
   if (!arrastre) return;
   const { desde, destino, fantasma } = arrastre;
   arrastre = null;
+  setTimeout(() => { sinClick = false; }, 60); // solo ignora el click que sale de soltar el dedo
   fantasma.remove();
   document.querySelectorAll('.dia.origen, .dia.destino').forEach((x) => x.classList.remove('origen', 'destino'));
   if (destino) proponer(parseISO(desde), parseISO(destino));
 }
 document.addEventListener('pointerup', finArrastre);
 document.addEventListener('pointercancel', finArrastre);
+document.addEventListener('contextmenu', (ev) => { if (ev.target.closest('[data-arr]')) ev.preventDefault(); });
 
-document.addEventListener('toggle', (ev) => {
-  const d = ev.target;
-  if (d.classList && d.classList.contains('dia')) {
-    if (d.open) diaAbierto = +d.dataset.dia;
-    else if (diaAbierto === +d.dataset.dia) diaAbierto = null;
-  }
-}, true);
+
 
 document.addEventListener('input', (ev) => {
   const el = ev.target;

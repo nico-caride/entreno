@@ -1,5 +1,5 @@
 // Cambiá la versión si querés forzar que se borre el caché viejo.
-const CACHE = 'entreno-v4';
+const CACHE = 'entreno-v5';
 const ARCHIVOS = [
   './', './index.html', './styles.css', './app.js', './plan.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',

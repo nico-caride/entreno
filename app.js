@@ -862,7 +862,7 @@ function seccionPeso(dISO) {
 // ---------- historial por ejercicio ----------
 let ejSel = null;
 function nombresEjercicios() {
-  const n = {};
+  const n = { ...(P.retirados || {}) };
   for (const k in P.sesiones) {
     for (const it of P.sesiones[k].items) {
       if (!it.id) continue;

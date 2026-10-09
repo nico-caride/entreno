@@ -46,14 +46,14 @@ window.PLAN = {
       titulo: 'Tren superior A', sub: 'Tracción + pop-ups', duracion: '70 min',
       tipo: 'fuerza', movilidadEntrada: true,
       items: [
-        { id: 'dominadas', nombre: 'Dominadas', series: 4, reps: '5–8', descanso: 120, nota: 'Con lastre si hacés más de 10', casa: { id: 'jalon-banda', nombre: 'Jalón con banda anclada arriba', reps: '10–15', sinPeso: true } },
+        { id: 'dominadas', nombre: 'Dominadas', series: 4, reps: '3–8', descanso: 120, nota: 'Las que te salgan estrictas. Si no llegás a 5, completá con negativas de 5 s', casa: { id: 'jalon-banda', nombre: 'Jalón con banda anclada arriba', reps: '10–15', sinPeso: true } },
         { id: 'press-incl', nombre: 'Press inclinado con mancuernas', series: 3, reps: '8–10', descanso: 120 },
         { id: 'remo-pecho', nombre: 'Remo con pecho apoyado', series: 3, reps: '8–10', descanso: 90 },
         { id: 'press-militar', nombre: 'Press militar de pie con mancuernas', series: 3, reps: '8–10', descanso: 90 },
-        { id: 'pullover', nombre: 'Pullover en polea con brazos rectos', series: 3, reps: '12', descanso: 60, casa: { id: 'pullover-banda', nombre: 'Pullover con banda', reps: '12–15', sinPeso: true } },
-        { id: 'facepull', nombre: 'Face pull', series: 3, reps: '15', descanso: 45, casa: { id: 'facepull-banda', nombre: 'Face pull con banda', reps: '15', sinPeso: true, tec: 'facepull' } },
+        { id: 'pullover-manc', nombre: 'Pullover con mancuerna en banco', series: 3, reps: '12', descanso: 60 },
+        { id: 'facepull-trx', nombre: 'Face pull en TRX', series: 3, reps: '12–15', descanso: 45, sinPeso: true, casa: { id: 'facepull-banda', nombre: 'Face pull con banda', reps: '15', tec: 'facepull' } },
         { id: 'rot-ext', nombre: 'Rotación externa con banda', series: 2, reps: '15', descanso: 45, sinPeso: true },
-        { id: 'bici-tri', nombre: 'Bíceps + tríceps en superserie', series: 3, reps: '10–12', descanso: 60 },
+        { id: 'curl', nombre: 'Curl de bíceps con mancuernas', series: 3, reps: '10–12', descanso: 60 },
         { id: 'popups-tec', nombre: 'Pop-ups técnicos', series: 3, reps: '5', descanso: 45, nota: 'Lentos y perfectos', sinPeso: true },
       ],
     },
@@ -79,7 +79,7 @@ window.PLAN = {
         { id: 'rumano', piernas: true, nombre: 'Peso muerto rumano', series: 3, reps: '8', descanso: 120, casa: { id: 'rumano-1p', nombre: 'Peso muerto rumano a una pierna', reps: '8–10 por pierna' } },
         { id: 'bulgara', piernas: true, nombre: 'Sentadilla búlgara', series: 3, reps: '8 por pierna', descanso: 90 },
         { id: 'balon', nombre: 'Lanzamiento rotacional de balón medicinal a la pared', series: 3, reps: '6 por lado', descanso: 60, casa: { id: 'pelota-arena', nombre: 'Lanzamiento rotacional con pelota de arena', reps: '8 por lado', sinPeso: true, nota: 'Pelota de 3 kg, contra una pared firme o al piso' } },
-        { id: 'pallof', nombre: 'Pallof press', series: 3, reps: '10 por lado', descanso: 45, casa: { id: 'pallof-banda', nombre: 'Pallof press con banda', sinPeso: true, tec: 'pallof' } },
+        { id: 'pallof', nombre: 'Pallof press con banda', series: 3, reps: '10 por lado', descanso: 45, sinPeso: true },
         { id: 'popups-exp', nombre: 'Pop-ups explosivos', series: 4, reps: '5', descanso: 60, sinPeso: true },
       ],
     },
@@ -90,11 +90,11 @@ window.PLAN = {
       tipo: 'fuerza', movilidadEntrada: true,
       items: [
         { id: 'banca', nombre: 'Press banca con barra', series: 4, reps: '5–8', descanso: 150, descansoTxt: '2–3 min', casa: { id: 'press-manc', nombre: 'Press con mancuernas en banco plano', reps: '10–12', nota: 'Bajada en 3 s', descansoTxt: '' } },
+        { id: 'dom-asist', nombre: 'Dominadas asistidas con banda', series: 3, reps: '6–8', descanso: 90, sinPeso: true, nota: 'Banda que te deje hacer 6–8 limpias; cuando hagas 8, pasá a una más fina', casa: { id: 'jalon-banda', nombre: 'Jalón con banda anclada arriba', reps: '12–15' } },
         { id: 'remo-una', nombre: 'Remo a una mano con mancuerna', series: 3, reps: '8–10 por lado', descanso: 90 },
-        { id: 'fondos', nombre: 'Fondos en paralelas', series: 3, reps: '8–12', descanso: 90, nota: 'Con lastre si hacés más de 12', casa: { id: 'flex-elev', nombre: 'Flexiones con pies en el banco', reps: '10–15', nota: '' } },
-        { id: 'jalon', nombre: 'Jalón al pecho con agarre neutro', series: 3, reps: '10', descanso: 90, casa: { id: 'jalon-banda', nombre: 'Jalón con banda anclada arriba', reps: '12–15', sinPeso: true } },
+        { id: 'triceps-ext', nombre: 'Extensión de tríceps sobre la cabeza con mancuerna', series: 3, reps: '10–12', descanso: 60 },
         { id: 'laterales', nombre: 'Elevaciones laterales', series: 4, reps: '12–15', descanso: 45 },
-        { id: 'ytw', nombre: 'Y-T-W boca abajo en banco inclinado', series: 2, reps: '8 de cada letra', descanso: 45 },
+        { id: 'remo-trx', nombre: 'Remo invertido en TRX', series: 3, reps: '10–12', descanso: 60, sinPeso: true, nota: 'Más acostado = más difícil', casa: { id: 'remo-banda', nombre: 'Remo con banda', reps: '12–15' } },
         { id: 'core', nombre: 'Core', series: 3, texto: '{s} rondas', descanso: 60, nota: 'Rueda abdominal + plancha lateral + hollow hold', sinPeso: true, casa: { id: 'core-casa', nota: 'Dead bug + plancha lateral + hollow hold' } },
       ],
     },
@@ -131,6 +131,9 @@ window.PLAN = {
       ],
     },
   },
+
+  // Ejercicios que ya no están en el plan, para mostrar bien el historial
+  retirados: { 'bici-tri': 'Bíceps + tríceps en superserie', fondos: 'Fondos en paralelas', ytw: 'Y-T-W', pullover: 'Pullover en polea', facepull: 'Face pull en polea', jalon: 'Jalón al pecho' },
 
   // ------------------------------------------------------------
   //  CASA — lo que tenés para entrenar en casa
@@ -187,7 +190,7 @@ window.PLAN = {
       etiqueta: 'Bloque 3 · Pico y definición',
       desde: '2026-11-23', hasta: '2026-12-20',
       descarga: null,
-      fuerza: '+1 serie de laterales y brazos. Accesorios con 45 s de descanso.',
+      fuerza: '+1 serie de laterales, bíceps y tríceps. Accesorios con 45 s de descanso.',
       viernesTxt: '3 × 5 min / 2 min + 8 sprints de 20 s',
       comida: '~2.250 kcal',
       macros: { kcal: 2250, prot: 140, grasa: 70, carbs: 265 },
@@ -197,11 +200,12 @@ window.PLAN = {
       ],
       ajustes: {
         laterales: { series: 5 },
-        'bici-tri': { series: 4, descanso: 45 },
+        curl: { series: 4, descanso: 45 },
+        'triceps-ext': { series: 4, descanso: 45 },
         // accesorios a 45 s
-        pullover: { descanso: 45 },
-        facepull: { descanso: 45 },
-        ytw: { descanso: 45 },
+        'pullover-manc': { descanso: 45 },
+        'facepull-trx': { descanso: 45 },
+        'remo-trx': { descanso: 45 },
         pallof: { descanso: 45 },
       },
     },
@@ -453,6 +457,15 @@ window.PLAN = {
       pasos: ['Boca abajo en banco inclinado, bandas enganchadas adelante.', 'Remá alternando brazos como en la tabla: entra la mano y tirás hasta la cadera.', 'Pecho arriba, mirada al frente, ritmo constante.'],
       error: 'Bajar la cabeza y perder la extensión de la espalda.', video: 'surf paddle training resistance bands',
     },
+    // reemplazos (oct 2026)
+    'pullover-manc': { pasos: ['Espalda alta apoyada en el banco, mancuerna con las dos manos sobre el pecho.', 'Bajala en arco por detrás de la cabeza con los codos apenas flexionados, hasta sentir los dorsales.', 'Volvé al pecho apretando la espalda, sin arquear la lumbar.'], error: 'Doblar mucho los codos y convertirlo en tríceps.', video: 'pullover con mancuerna técnica' },
+    'facepull-trx': { pasos: ['Agarrá las manijas con las palmas hacia abajo, cuerpo inclinado hacia atrás y recto.', 'Tirá hacia la frente abriendo los codos alto y juntando las escápulas.', 'Volvé lento. Más inclinado = más difícil.'], error: 'Tirar con los brazos sin juntar las escápulas.', video: 'TRX face pull' },
+    curl: { pasos: ['De pie, mancuernas al costado, palmas hacia adelante.', 'Subí doblando solo el codo, sin mover los hombros ni balancear.', 'Bajá lento (2 s) hasta estirar del todo.'], error: 'Balancear el torso para subir más peso.', video: 'curl de bíceps con mancuernas técnica' },
+    'triceps-ext': { pasos: ['Sentado o de pie, una mancuerna con las dos manos arriba de la cabeza.', 'Bajala por detrás de la cabeza doblando solo los codos, que apuntan al techo.', 'Subí hasta estirar los brazos.'], error: 'Abrir los codos hacia los costados.', video: 'extensión de tríceps sobre la cabeza mancuerna' },
+    'dom-asist': { pasos: ['Banda enganchada en la barra, un pie o rodilla apoyado en la banda.', 'Arrancá bajando las escápulas y subí hasta pasar el mentón.', 'Bajá controlado hasta estirar los brazos.'], error: 'Rebotar abajo usando el impulso de la banda.', video: 'dominadas asistidas con banda' },
+    'remo-trx': { pasos: ['Manijas al pecho, cuerpo recto inclinado hacia atrás, talones apoyados.', 'Tirá llevando el pecho hacia las manos, codos cerca del cuerpo y escápulas juntas.', 'Bajá lento sin que se caiga la cadera.'], error: 'Dejar caer la cadera o encoger los hombros.', video: 'TRX row técnica' },
+    'remo-banda': { pasos: ['Banda anclada a la altura del pecho, de frente.', 'Tirá hacia el abdomen juntando las escápulas.', 'Volvé lento.'], error: 'Inclinarte hacia atrás para tirar.', video: 'remo con banda elástica' },
+
     // versiones de casa
     'jalon-banda': { pasos: ['Banda anclada arriba de la puerta, arrodillado o sentado frente a ella.', 'Tirá llevando los codos hacia las costillas, pecho arriba.', 'Volvé lento hasta estirar los brazos.'], error: 'Tirar con los brazos sin bajar las escápulas.', video: 'banded lat pulldown' },
     'pullover-banda': { pasos: ['Banda anclada arriba, brazos casi rectos al frente.', 'Llevá la banda en arco hasta los muslos usando los dorsales.', 'Volvé lento.'], error: 'Doblar los codos.', video: 'banded straight arm pulldown' },

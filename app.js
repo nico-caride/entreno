@@ -13,7 +13,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const rango = (n) => Array.from({ length: n }, (_, i) => i);
 
 // ---------- datos (localStorage) ----------
-const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {}, fijos: {}, check: {}, peso: {}, entrenos: {}, comida: {} });
+const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {}, fijos: {}, check: {}, peso: {}, entrenos: {}, comida: {}, misAli: [], aliEdit: {} });
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY));
@@ -296,15 +296,23 @@ function chipBloque(E) {
 P.alimentos ||= [];
 P.alimentosCats ||= [];
 P.comidasTipo ||= [];
-const ALI = Object.fromEntries(P.alimentos.map((a) => [a.id, a]));
+// Alimentos = los del plan + los que creaste, con tus correcciones de valores encima.
+let ALI = {};
+function armarALI() {
+  ALI = Object.fromEntries([...DB.misAli, ...P.alimentos].map((a) => [a.id, { ...a, ...(DB.aliEdit[a.id] || {}) }]));
+}
+armarALI();
+const todosAli = () => [...DB.misAli, ...P.alimentos].map((a) => ALI[a.id]);
+// Valores de lo que comiste: si lo corregiste a mano, manda eso.
+const valE = (e) => { const a = ALI[e.id]; return { p: e.p ?? a.prot * e.c, k: e.k ?? a.kcal * e.c }; };
 function totales(dISO) {
   let prot = (DB.prot[dISO] || []).reduce((a, b) => a + b, 0);
   let kcal = 0;
   for (const e of DB.comida[dISO] || []) {
-    const a = ALI[e.id];
-    if (!a) continue;
-    prot += a.prot * e.c;
-    kcal += a.kcal * e.c;
+    if (!ALI[e.id]) continue;
+    const v = valE(e);
+    prot += v.p;
+    kcal += v.k;
   }
   return { prot: Math.round(prot), kcal: Math.round(kcal) };
 }
@@ -651,22 +659,49 @@ function frecuentes() {
 }
 
 let pickerMom = null; // momento del día donde se está agregando
+let editAli = null; // alimento cuyos valores se están editando
+let creando = false;
+let editEnt = null; // índice de lo comido que se está corrigiendo
+let busqueda = '';
+const campoNum = (id, val, unidad, label) => `<label class="cn"><span>${label}</span><input id="${id}" type="text" inputmode="decimal" autocomplete="off" value="${val ?? ''}"><small>${unidad}</small></label>`;
+
 function picker() {
   const frec = frecuentes();
-  const cat = catSel || (frec.length ? 'Frecuentes' : P.alimentosCats[0]);
-  const cats = (frec.length ? ['Frecuentes'] : []).concat(P.alimentosCats);
-  const lista = cat === 'Frecuentes' ? frec.map((id) => ALI[id]) : P.alimentos.filter((a) => a.cat === cat);
-  return `<div class="picker">
-    <input id="buscar" type="search" placeholder="Buscar: huevo, pollo, pizza…" autocomplete="off" aria-label="Buscar alimento">
-    <div class="segmentos chico" id="cats">${cats.map((c) => `<button type="button" class="${c === cat ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div>
-    <ul class="ali-lista" id="ali-lista">${P.alimentos.map((a) => {
+  const mios = DB.misAli.length ? ['Mis alimentos'] : [];
+  const cats = (frec.length ? ['Frecuentes'] : []).concat(mios, P.alimentosCats);
+  const cat = catSel && cats.includes(catSel) ? catSel : cats[0];
+  const lista = cat === 'Frecuentes' ? frec.map((id) => ALI[id]) : todosAli().filter((a) => (a.cat || 'Mis alimentos') === cat);
+  let h = `<div class="picker">
+    <input id="buscar" type="search" placeholder="Buscar: huevo, pollo, pizza…" autocomplete="off" aria-label="Buscar alimento" value="${esc(busqueda)}">
+    <div class="segmentos chico" id="cats"${busqueda ? ' hidden' : ''}>${cats.map((c) => `<button type="button" class="${c === cat ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+    <ul class="ali-lista" id="ali-lista">${todosAli().map((a) => {
       const visible = lista.includes(a);
-      return `<li data-n="${esc(sinTildes(a.nombre))}" data-vis="${visible ? 1 : 0}"${visible ? '' : ' hidden'}>
-        <button type="button" class="ali" data-ali="${a.id}"><span><b>${esc(a.nombre)}</b><small>${esc(a.porcion)}</small></span><span class="mut">${fmt(a.prot)} g · ${a.kcal} kcal</span></button>
-        ${aliSel === a.id ? `<div class="cant"><span class="k">¿Cuánto?</span>${[0.5, 1, 1.5, 2, 3].map((c) => `<button type="button" data-add="${a.id}|${c}">${fmtC(c)}</button>`).join('')}</div>` : ''}
+      const editado = !!DB.aliEdit[a.id];
+      const t = sinTildes(busqueda.trim());
+      const oculto = t ? !sinTildes(a.nombre).includes(t) : !visible;
+      return `<li data-n="${esc(sinTildes(a.nombre))}" data-vis="${visible ? 1 : 0}"${oculto ? ' hidden' : ''}>
+        <button type="button" class="ali" data-ali="${a.id}"><span><b>${esc(a.nombre)}</b><small>${esc(a.porcion)}${editado ? ' · editado' : ''}</small></span><span class="mut">${fmt(a.prot)} g · ${fmt(a.kcal, 0)} kcal</span></button>
+        ${aliSel === a.id ? `<div class="cant"><span class="k">¿Cuánto?</span>${[0.5, 1, 1.5, 2, 3].map((c) => `<button type="button" data-add="${a.id}|${c}">${fmtC(c)}</button>`).join('')}</div>
+          ${editAli === a.id ? `<div class="edit-v"><p class="k">Valores por ${esc(a.porcion)}</p>
+            <div class="cn-fila">${campoNum('ed-p', a.prot, 'g', 'Proteína')}${campoNum('ed-k', a.kcal, 'kcal', 'Calorías')}</div>
+            <div class="dos"><button type="button" class="secund" data-edit-ali="${a.id}">Cancelar</button><button type="button" class="secund confirmar" data-guardar-ali="${a.id}">Guardar</button></div>
+            ${editado && !a.id.startsWith('u-') ? `<button type="button" class="link chico" data-reset-ali="${a.id}">↺ Volver a los valores originales</button>` : ''}
+            ${a.id.startsWith('u-') ? `<button type="button" class="link chico rojo" data-borrar-ali="${a.id}">Borrar este alimento</button>` : ''}
+          </div>` : `<button type="button" class="link chico" data-edit-ali="${a.id}">✎ Editar valores</button>`}` : ''}
       </li>`;
-    }).join('')}</ul>
-  </div>`;
+    }).join('')}</ul>`;
+  if (creando) {
+    h += `<div class="edit-v nuevo"><p class="k">Alimento nuevo</p>
+      <label class="cn ancho"><span>Nombre</span><input id="nv-n" type="text" autocomplete="off" value="${esc(busqueda)}" placeholder="Prota (barrita)"></label>
+      <label class="cn ancho"><span>Porción</span><input id="nv-po" type="text" autocomplete="off" value="1 unidad"></label>
+      <div class="cn-fila">${campoNum('nv-p', '', 'g', 'Proteína')}${campoNum('nv-k', '', 'kcal', 'Calorías')}</div>
+      <p class="error" id="nv-err" hidden></p>
+      <div class="dos"><button type="button" class="secund" data-accion="crear-ali">Cancelar</button><button type="button" class="secund confirmar" data-accion="guardar-nuevo">Guardar</button></div>
+    </div>`;
+  } else {
+    h += '<button type="button" class="secund crear" data-accion="crear-ali">+ Crear alimento</button>';
+  }
+  return `${h}</div>`;
 }
 
 function vistaNutri() {
@@ -692,14 +727,23 @@ function vistaNutri() {
     const rapidas = mo.id === 'extras' ? DB.prot[dISO] || [] : [];
     let p = rapidas.reduce((a, b) => a + b, 0);
     let k = 0;
-    items.forEach(({ e }) => { p += ALI[e.id].prot * e.c; k += ALI[e.id].kcal * e.c; });
+    items.forEach(({ e }) => { const v = valE(e); p += v.p; k += v.k; });
     const tipo = mo.tipo != null ? P.comidasTipo[mo.tipo] : null;
     const abierto = pickerMom === mo.id;
     h += `<section class="c momento" style="--mc:${mo.color}">
       <div class="mom-top"><span class="mom-n">${esc(mo.nombre)}</span><span class="mut">${items.length || rapidas.length ? `${Math.round(p)} g · ${Math.round(k)} kcal` : 'vacío'}</span></div>
       ${items.map(({ e, i }) => {
         const a = ALI[e.id];
-        return `<div class="item-c"><span><b>${esc(a.nombre)}</b><small>${fmtC(e.c)} × ${esc(a.porcion)}</small></span><span class="mut">${Math.round(a.prot * e.c)} g · ${Math.round(a.kcal * e.c)}</span><button type="button" class="x" data-borrar="${i}" aria-label="Borrar">✕</button></div>`;
+        const v = valE(e);
+        let fila = `<div class="item-c"><button type="button" class="item-n" data-edit-ent="${i}"><b>${esc(a.nombre)}</b><small>${fmtC(e.c)} × ${esc(a.porcion)}${e.p != null ? ' · corregido' : ''} · ✎</small></button><span class="mut">${fmt(v.p)} g · ${Math.round(v.k)}</span><button type="button" class="x" data-borrar="${i}" aria-label="Borrar">✕</button></div>`;
+        if (editEnt === i) {
+          fila += `<div class="edit-v"><p class="k">Lo que comiste (${fmtC(e.c)} × ${esc(a.porcion)})</p>
+            <div class="cn-fila">${campoNum('ee-p', +fmt(v.p).replace(',', '.'), 'g', 'Proteína')}${campoNum('ee-k', Math.round(v.k), 'kcal', 'Calorías')}</div>
+            <div class="dos"><button type="button" class="secund" data-guardar-ent="${i}|hoy">Solo esta vez</button><button type="button" class="secund confirmar" data-guardar-ent="${i}|siempre">Usar siempre</button></div>
+            <p class="mut chico">"Usar siempre" cambia los valores de ${esc(a.nombre)} para las próximas veces.</p>
+          </div>`;
+        }
+        return fila;
       }).join('')}
       ${rapidas.map((g, i) => `<div class="item-c"><span><b>Carga rápida</b><small>versión anterior</small></span><span class="mut">${g} g</span><button type="button" class="x" data-borrar-prot="${i}" aria-label="Borrar">✕</button></div>`).join('')}
       <div class="mom-acc">
@@ -751,7 +795,8 @@ function filtrarAlimentos(q) {
   document.querySelectorAll('#ali-lista li').forEach((li) => {
     li.hidden = t ? !li.dataset.n.includes(t) : li.dataset.vis !== '1';
   });
-  $('#cats').hidden = !!t;
+  const cats = $('#cats');
+  if (cats) cats.hidden = !!t;
 }
 
 // ---------- pantalla: PROGRESO ----------
@@ -1092,6 +1137,7 @@ function importar(file) {
       if (!datos || typeof datos !== 'object' || !('logs' in datos)) throw new Error('formato');
       if (!confirm('Esto reemplaza todos los datos del celular por los del backup. ¿Seguimos?')) return;
       DB = Object.assign(blank(), datos);
+      armarALI();
       save();
       toast('Backup importado');
       render('inicio');
@@ -1197,7 +1243,7 @@ document.addEventListener('click', (ev) => {
   }
   if (el.dataset.lugar) { lugarSel = el.dataset.lugar; return render('inicio', true); }
 
-  if (el.dataset.ali) { aliSel = aliSel === el.dataset.ali ? null : el.dataset.ali; const q = $('#buscar')?.value || ''; render('nutri', true); if (q) { $('#buscar').value = q; filtrarAlimentos(q); } return; }
+  if (el.dataset.ali) { aliSel = aliSel === el.dataset.ali ? null : el.dataset.ali; editAli = null; return render('nutri', true); }
   if (el.dataset.add) {
     const [id, c] = el.dataset.add.split('|');
     (DB.comida[dISO] ||= []).push({ id, c: +c, m: pickerMom || 'extras', t: Date.now() });
@@ -1205,6 +1251,47 @@ document.addEventListener('click', (ev) => {
     aliSel = null;
     render('nutri', true);
     return toast(`Agregado: ${fmtC(+c)} × ${ALI[id].nombre}`);
+  }
+  if (el.classList.contains('item-n')) {
+    editEnt = editEnt === +el.dataset.editEnt ? null : +el.dataset.editEnt;
+    return render('nutri', true);
+  }
+  if (el.dataset.guardarEnt) {
+    const [i, modo] = el.dataset.guardarEnt.split('|');
+    const e = DB.comida[dISO][+i];
+    const pv = num($('#ee-p').value);
+    const kv = num($('#ee-k').value);
+    if (pv == null || kv == null) return toast('Poné proteína y calorías');
+    if (modo === 'siempre') {
+      DB.aliEdit[e.id] = { prot: Math.round((pv / e.c) * 10) / 10, kcal: Math.round(kv / e.c) };
+      delete e.p; delete e.k;
+      armarALI();
+    } else { e.p = pv; e.k = kv; }
+    editEnt = null;
+    save();
+    render('nutri', true);
+    return toast(modo === 'siempre' ? `Guardado: ${ALI[e.id].nombre} ahora tiene ${fmt(ALI[e.id].prot)} g · ${ALI[e.id].kcal} kcal` : 'Corregido');
+  }
+  if (el.dataset.editAli) { editAli = editAli === el.dataset.editAli ? null : el.dataset.editAli; return render('nutri', true); }
+  if (el.dataset.guardarAli) {
+    const id = el.dataset.guardarAli;
+    const pv = num($('#ed-p').value);
+    const kv = num($('#ed-k').value);
+    if (pv == null || kv == null) return toast('Poné proteína y calorías');
+    const mio = DB.misAli.find((a) => a.id === id);
+    if (mio) { mio.prot = pv; mio.kcal = kv; } else DB.aliEdit[id] = { prot: pv, kcal: kv };
+    editAli = null;
+    save(); armarALI();
+    render('nutri', true);
+    return toast('Valores guardados');
+  }
+  if (el.dataset.resetAli) { delete DB.aliEdit[el.dataset.resetAli]; editAli = null; save(); armarALI(); return render('nutri', true); }
+  if (el.dataset.borrarAli) {
+    if (!confirm('¿Borrar este alimento? Lo que ya cargaste con él deja de contar.')) return;
+    DB.misAli = DB.misAli.filter((a) => a.id !== el.dataset.borrarAli);
+    aliSel = null; editAli = null;
+    save(); armarALI();
+    return render('nutri', true);
   }
   if (el.dataset.tipo) {
     const c = P.comidasTipo[+el.dataset.tipo];
@@ -1215,7 +1302,7 @@ document.addEventListener('click', (ev) => {
   }
   if (el.dataset.borrar) { (DB.comida[dISO] || []).splice(+el.dataset.borrar, 1); save(); return render('nutri', true); }
   if (el.dataset.borrarProt) { (DB.prot[dISO] || []).splice(+el.dataset.borrarProt, 1); save(); return render('nutri', true); }
-  if (el.dataset.picker) { pickerMom = pickerMom === el.dataset.picker ? null : el.dataset.picker; aliSel = null; catSel = null; return render('nutri', true); }
+  if (el.dataset.picker) { pickerMom = pickerMom === el.dataset.picker ? null : el.dataset.picker; aliSel = null; catSel = null; busqueda = ''; creando = false; editAli = null; return render('nutri', true); }
   if (el.dataset.cat) { catSel = el.dataset.cat; aliSel = null; return render('nutri', true); }
 
   if (el.dataset.test) { testSel = el.dataset.test; return render('progreso', true); }
@@ -1261,6 +1348,20 @@ document.addEventListener('click', (ev) => {
   if (acc === 'cancelar-prop') { propuesta = null; return render('semana', true); }
   if (acc === 'restaurar') { restaurarSemana(hoy()); render('semana', true); return toast('Semana restaurada'); }
 
+  if (acc === 'crear-ali') { creando = !creando; render('nutri', true); if (creando) $('#nv-n')?.focus(); return; }
+  if (acc === 'guardar-nuevo') {
+    const nombre = $('#nv-n').value.trim();
+    const pv = num($('#nv-p').value);
+    const kv = num($('#nv-k').value);
+    const err = $('#nv-err');
+    if (!nombre || pv == null || kv == null) { err.textContent = 'Completá nombre, proteína y calorías.'; err.hidden = false; return; }
+    const id = `u-${Date.now()}`;
+    DB.misAli.push({ id, nombre, porcion: $('#nv-po').value.trim() || '1 unidad', cat: 'Mis alimentos', prot: pv, kcal: kv });
+    save(); armarALI();
+    creando = false; busqueda = ''; catSel = 'Mis alimentos'; aliSel = id;
+    render('nutri', true);
+    return toast(`Creado: ${nombre}. Elegí cuánto comiste.`);
+  }
   if (acc === 'crea') { DB.crea[dISO] = !DB.crea[dISO]; save(); return render('nutri', true); }
   if (acc === 'foto') { const t = (DB.tests[testSel] ||= {}); t.foto = !t.foto; save(); return render('progreso', true); }
   if (acc === 'exportar') return exportar();
@@ -1345,7 +1446,7 @@ document.addEventListener('input', (ev) => {
     save();
     return;
   }
-  if (el.id === 'buscar') return filtrarAlimentos(el.value);
+  if (el.id === 'buscar') { busqueda = el.value; return filtrarAlimentos(el.value); }
   if (el.id === 'peso-hoy') {
     DB.peso[iso(hoy())] = el.value.trim().replace('.', ',');
     save();

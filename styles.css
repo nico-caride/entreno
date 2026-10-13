@@ -411,3 +411,18 @@ body.modo-entreno .timer { bottom: calc(var(--safe-b) + 12px); }
 .opc-ej .secund { text-align: left; padding: 8px 12px; }
 
 .mover.poner button { border-color: var(--sc); color: var(--sc); }
+
+/* editar valores de alimentos */
+.edit-v { background: var(--card2); border-radius: 12px; padding: 10px 12px 12px; margin: 4px 0 10px; }
+.edit-v .k { margin-bottom: 8px; }
+.cn-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cn { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; color: var(--mut); position: relative; }
+.cn input { height: 46px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--txt); padding: 0 44px 0 12px; font-family: var(--num); font-size: 1.3rem; font-weight: 600; width: 100%; min-width: 0; }
+.cn.ancho { margin-bottom: 8px; }
+.cn.ancho input { font-family: -apple-system, system-ui, sans-serif; font-size: 1rem; font-weight: 500; padding-right: 12px; }
+.cn input:focus { outline: 0; border-color: var(--acc); }
+.cn small { position: absolute; right: 10px; bottom: 14px; font-size: .75rem; }
+.edit-v .dos { margin-top: 10px; }
+.secund.crear { width: 100%; margin-top: 10px; border-style: dashed; }
+.item-n { background: none; border: 0; padding: 0; text-align: left; color: inherit; min-width: 0; }
+.link.rojo { color: var(--bad); }

@@ -409,3 +409,5 @@ body.modo-entreno .timer { bottom: calc(var(--safe-b) + 12px); }
 .link.chico { font-size: .82rem; padding: 8px 0 0; }
 .opc-ej { display: grid; gap: 6px; margin-top: 8px; }
 .opc-ej .secund { text-align: left; padding: 8px 12px; }
+
+.mover.poner button { border-color: var(--sc); color: var(--sc); }

@@ -72,6 +72,9 @@ const bloqueado = (f) => {
   return iso(f) < hISO || (iso(f) === hISO && (!!DB.entrenos[hISO]?.inicio || hechoEl(f)));
 };
 const fijado = (f) => !!DB.fijos[iso(f)];
+// Se puede cambiar lo que tiene un día (incluso uno que ya pasó, para registrar lo que hiciste),
+// salvo hoy si ya empezaste a entrenar.
+const editable = (f) => { const hISO = iso(hoy()); return !(iso(f) === hISO && DB.entrenos[hISO]?.inicio); };
 const esFuerza = (k) => P.sesiones[k].tipo === 'fuerza';
 const esPesada = (k) => !!P.sesiones[k].pesada;
 
@@ -393,6 +396,7 @@ function tarjetaSesion(S, ent, hechos, total) {
     <ul class="prev" id="prev" hidden>${S.items.map((x) => (x.seccion ? `<li class="k">${esc(x.seccion)}</li>` : `<li><span>${esc(x.nombre)}</span><span class="mut">${esc(dosis(x))}</span></li>`)).join('')}</ul>
     <div class="opciones" id="opciones" hidden>
       <p class="mut chico">¿Qué hiciste o vas a hacer hoy? La semana se reacomoda sola.</p>
+      <button type="button" class="link chico" data-tab="semana" style="grid-column:1/-1;text-align:left">¿Es otro día (ayer, mañana)? Cambialo en Semana →</button>
       ${Object.keys(P.sesiones).filter((k) => k !== clave).map((k) => `<button type="button" class="secund" data-sesion="${k}">${esc(titulo(k))}</button>`).join('')}
     </div>
   </section>`;
@@ -595,7 +599,7 @@ function vistaSemana() {
   }
 
   if (E.descarga) h += '<div class="aviso"><b>Semana de descarga:</b> la mitad de las series y el viernes zona 2.</div>';
-  h += '<p class="mut chico ayuda">Mantené apretado un día y arrastralo a otro. El resto se reacomoda solo. Tocá un día para ver sus ejercicios.</p>';
+  h += '<p class="mut chico ayuda">Tocá un día para cambiar lo que tiene (también los que ya pasaron) o mantenelo apretado y arrastralo. El resto se reacomoda solo.</p>';
   if (dias.some((f) => movido(f) || fijado(f))) h += '<button type="button" class="cambiar" data-accion="restaurar">↺ Volver la semana al orden original</button>';
 
   dias.forEach((f) => {
@@ -615,6 +619,7 @@ function vistaSemana() {
         <span class="dd">${esc(S.s.duracion || '')}</span>
       </div>
       <div class="dia-body"${abierto ? '' : ' hidden'}>
+        ${editable(f) ? `<div class="mover poner"><span class="meta">${fISO < iso(d) ? 'Ese día hiciste:' : 'Cambiar por:'}</span>${Object.keys(P.sesiones).filter((k) => k !== S.clave).map((k) => `<button type="button" data-poner="${fISO}|${k}" style="--sc:${colorDe(k)}">${esc(P.sesiones[k].corto || titulo(k))}</button>`).join('')}</div>` : ''}
         ${bloq ? '' : `<div class="mover"><span class="meta">Mover a:</span>${dias.filter((g) => g !== f && !bloqueado(g)).map((g) => `<button type="button" data-mover="${fISO}|${iso(g)}">${DIAS[g.getDay()].slice(0, 3)}</button>`).join('')}</div>`}
         ${S.s.sub ? `<p class="meta">${esc(S.s.sub)}</p>` : ''}${S.items.map((x) => cardVer(x, S.dISO)).join('')}
       </div>
@@ -1221,6 +1226,11 @@ document.addEventListener('click', (ev) => {
     render('inicio');
     toast(msg ? `Semana reacomodada: ${msg}` : 'Listo, cambiado');
     return;
+  }
+  if (el.dataset.poner) {
+    const [f, k] = el.dataset.poner.split('|');
+    propuesta = reorganizar(parseISO(f), k, null);
+    return render('semana');
   }
   if (el.dataset.mover) {
     const [a, b] = el.dataset.mover.split('|').map(parseISO);

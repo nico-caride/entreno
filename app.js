@@ -332,55 +332,102 @@ function dial(frac, color, centro, label, accion) {
 // ---------- Garmin (vía app Salud + Atajo de iOS + portapapeles) ----------
 const ATAJO = 'Entreno';
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
-// Texto que arma el Atajo:
+// Texto que arma el Atajo (una línea por fase del sueño):
 //   ENTRENO
 //   fcr=56
-//   inicio=2026-10-13T00:12:00-03:00
-//   fin=2026-10-13T07:40:00-03:00
+//   s=Profundo;2026-10-13T01:02:00-03:00;2026-10-13T02:10:00-03:00
+//   s=REM;...
 //   padel=2026-10-12;2026-10-14   (opcional)
+// También acepta el formato viejo con inicio= y fin=.
+function faseDe(v) {
+  const t = sinTildes(String(v));
+  const n = { 0: 'cama', 1: 'dormido', 2: 'despierto', 3: 'ligero', 4: 'profundo', 5: 'rem' }[t.trim()];
+  if (n) return n;
+  if (/profund|deep/.test(t)) return 'profundo';
+  if (/\brem\b/.test(t)) return 'rem';
+  if (/despiert|awake|vigil/.test(t)) return 'despierto';
+  if (/cama|bed/.test(t)) return 'cama';
+  if (/nucleo|basico|core|ligero|light/.test(t)) return 'ligero';
+  return 'dormido';
+}
+const aFecha = (t) => { const d = new Date(String(t || '').trim().replace(' ', 'T')); return isNaN(d) ? null : d; };
+// Resume las fases de la última noche (si vinieron restos de la noche anterior, se descartan).
+function resumirNoche(muestras) {
+  const m = muestras.filter((x) => x.ini && x.fin && x.fin > x.ini).sort((a, b) => a.ini - b.ini);
+  if (!m.length) return null;
+  const grupos = [[m[0]]];
+  for (const x of m.slice(1)) {
+    const g = grupos[grupos.length - 1];
+    if (x.ini - Math.max(...g.map((y) => +y.fin)) > 2 * 36e5) grupos.push([x]); else g.push(x);
+  }
+  const noche = grupos[grupos.length - 1];
+  const fases = noche.filter((x) => x.fase !== 'cama');
+  const base = fases.length ? fases : noche;
+  const min = (f) => Math.round(noche.filter((x) => x.fase === f).reduce((a, x) => a + (x.fin - x.ini), 0) / 6e4);
+  const dormidoMin = fases.filter((x) => x.fase !== 'despierto').reduce((a, x) => a + (x.fin - x.ini), 0) / 6e4;
+  const ini = new Date(Math.min(...base.map((x) => +x.ini)));
+  const fin = new Date(Math.max(...base.map((x) => +x.fin)));
+  const horas = fases.length ? dormidoMin / 60 : (fin - ini) / 36e5;
+  return {
+    horas: Math.round(horas * 10) / 10,
+    inicio: ini.toISOString(), fin: fin.toISOString(), dia: iso(fin),
+    profundo: fases.length ? min('profundo') : null, rem: fases.length ? min('rem') : null,
+    despierto: fases.length ? min('despierto') : null,
+    despertares: noche.filter((x) => x.fase === 'despierto' && x.ini > ini && x.fin < fin).length,
+  };
+}
 function leerSync(texto) {
   if (!/ENTRENO/i.test(texto || '')) return null;
   const kv = {};
-  texto.split(/[\n|&]+/).forEach((l) => { const m = l.match(/^\s*([a-záéíóú]+)\s*[=:]\s*(.+?)\s*$/i); if (m) kv[m[1].toLowerCase()] = m[2]; });
-  const fecha = (t) => { const d = new Date(String(t).replace(' ', 'T')); return isNaN(d) ? null : d; };
-  const ini = fecha(kv.inicio);
-  const fin = fecha(kv.fin);
-  let horas = null;
-  if (ini && fin) { const h = (fin - ini) / 36e5; if (h > 2 && h < 15) horas = Math.round(h * 10) / 10; }
-  if (horas == null && num(kv.sueno) != null) { const v = num(kv.sueno); horas = v > 24 ? Math.round((v / 60) * 10) / 10 : v; }
+  const muestras = [];
+  texto.split(/[\n&]+/).forEach((l) => {
+    const sm = l.match(/^\s*s\s*[=:]\s*(.+)$/i);
+    if (sm) { const [v, a, b] = sm[1].split(/\s*[;|]\s*/); muestras.push({ fase: faseDe(v), ini: aFecha(a), fin: aFecha(b) }); return; }
+    const m = l.match(/^\s*([a-záéíóú]+)\s*[=:]\s*(.+?)\s*$/i);
+    if (m) kv[m[1].toLowerCase()] = m[2];
+  });
+  if (!muestras.length && aFecha(kv.inicio) && aFecha(kv.fin)) muestras.push({ fase: 'cama', ini: aFecha(kv.inicio), fin: aFecha(kv.fin) });
+  let noche = resumirNoche(muestras);
+  if (noche && !(noche.horas > 1 && noche.horas < 15)) noche = null;
   const fcr = num(kv.fcr);
   const padel = String(kv.padel || '').split(/[;,\s]+/).map((x) => (x.match(/\d{4}-\d{2}-\d{2}/) || [])[0]).filter(Boolean);
-  if (fcr == null && horas == null && !padel.length) return null;
-  return { fcr: fcr != null ? Math.round(fcr) : null, horas, padel, dia: fin ? iso(fin) : iso(hoy()) };
+  if (fcr == null && !noche && !padel.length) return null;
+  return { fcr: fcr != null ? Math.round(fcr) : null, noche, padel, dia: noche ? noche.dia : iso(hoy()) };
 }
 function guardarSync(texto) {
   const r = leerSync(texto);
   if (!r) return toast('No encontré datos del Atajo. Corrélo de nuevo y probá otra vez.');
   const dia = r.dia;
-  DB.salud[dia] = { ...(DB.salud[dia] || {}), ...(r.fcr != null ? { fcr: r.fcr } : {}), ...(r.horas != null ? { horas: r.horas } : {}) };
+  const { dia: _d, ...noche } = r.noche || {};
+  DB.salud[dia] = { ...(DB.salud[dia] || {}), ...(r.fcr != null ? { fcr: r.fcr } : {}), ...(r.noche ? noche : {}) };
   r.padel.forEach((f) => { if (!DB.garmin.padel.includes(f)) DB.garmin.padel.push(f); });
   save();
   render('inicio', true);
-  const partes = [r.horas != null && `sueño ${fmtHoras(r.horas)}`, r.fcr != null && `pulso ${r.fcr}`].filter(Boolean);
+  const partes = [r.noche && `sueño ${fmtHoras(r.noche.horas)}`, r.fcr != null && `pulso ${r.fcr}`].filter(Boolean);
   toast(`Garmin: ${partes.join(' · ') || 'datos cargados'}`);
 }
 const fmtHoras = (h) => `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+const fmtMin = (m) => (m >= 60 ? fmtHoras(m / 60) : `${m} min`);
 
-// Recuperación: sueño (meta 7,5 h) y pulso en reposo contra tu promedio de 3 semanas.
+// Recuperación: sueño real (meta 7,5 h), sueño profundo, ratos despierto
+// y pulso en reposo contra tu promedio de 3 semanas.
 function recuperacion(dISO) {
   const s = DB.salud[dISO];
   if (!s) return null;
   const desde = iso(addDays(parseISO(dISO), -21));
   const prev = Object.keys(DB.salud).filter((f) => f < dISO && f >= desde && DB.salud[f].fcr != null).map((f) => DB.salud[f].fcr);
   const base = prev.length >= 3 ? prev.reduce((a, b) => a + b, 0) / prev.length : null;
-  const partes = [];
-  if (s.horas != null) partes.push(clamp01((s.horas - 5) / 2.5));
+  const partes = []; // [puntaje 0–1, peso]
+  if (s.horas != null) partes.push([clamp01((s.horas - 5) / 2.5), 1]);
+  if (s.profundo != null && s.horas) partes.push([clamp01((s.profundo / (s.horas * 60) - 0.08) / 0.1), 0.5]);
+  if (s.despierto != null && s.horas) partes.push([clamp01((s.horas * 60 / (s.horas * 60 + s.despierto) - 0.8) / 0.12), 0.5]);
   const dif = base != null && s.fcr != null ? s.fcr - base : null;
-  if (dif != null) partes.push(clamp01(1 - Math.max(0, dif) / 8));
+  if (dif != null) partes.push([clamp01(1 - Math.max(0, dif) / 8), 1]);
   if (!partes.length) return null;
-  let p = Math.round((partes.reduce((a, b) => a + b, 0) / partes.length) * 100);
+  const peso = partes.reduce((a, [, w]) => a + w, 0);
+  let p = Math.round((partes.reduce((a, [v, w]) => a + v * w, 0) / peso) * 100);
   if (dif != null && dif >= 8) p = Math.min(p, 30); // pulso muy alto: nunca verde
-  return { p, horas: s.horas, fcr: s.fcr, base, dif };
+  return { p, ...s, base, dif };
 }
 const zonaR = (p) => (p >= 67 ? 'verde' : p >= 40 ? 'amarillo' : 'rojo');
 const COLOR_R = { verde: 'var(--ok)', amarillo: 'var(--warn)', rojo: 'var(--bad)' };
@@ -398,7 +445,8 @@ function tarjetaGarmin(d, clave, ent) {
   let h = '';
   if (r) {
     const z = zonaR(r.p);
-    const det = [r.horas != null && `Sueño ${fmtHoras(r.horas)}`, r.fcr != null && `pulso en reposo ${r.fcr}${r.dif != null ? ` (${r.dif >= 0 ? '+' : ''}${fmt(r.dif, 0)} vs tu promedio)` : ''}`].filter(Boolean).join(' · ');
+    const fases = [r.profundo != null && `profundo ${fmtMin(r.profundo)}`, r.rem != null && `REM ${fmtMin(r.rem)}`, r.despierto != null && `despierto ${fmtMin(r.despierto)}`].filter(Boolean).join(', ');
+    const det = [r.horas != null && `Dormiste ${fmtHoras(r.horas)}${fases ? ` (${fases})` : ''}`, r.fcr != null && `pulso en reposo ${r.fcr}${r.dif != null ? ` (${r.dif >= 0 ? '+' : ''}${fmt(r.dif, 0)} vs tu promedio)` : ''}`].filter(Boolean).join(' · ');
     h += `<p class="reco" style="--z:${COLOR_R[z]}">${esc(RECO_R[z])}<small class="det">${esc(det)}</small></p>`;
     if (z === 'rojo' && !['z2', 'domingo'].includes(clave) && !ent?.inicio) h += '<button type="button" class="link" data-sesion="z2">Cambiar hoy por zona 2 →</button>';
   }
@@ -999,8 +1047,35 @@ function seccionSalud(dISO) {
   const sue = fechas.filter((f) => DB.salud[f].horas != null).map((f) => ({ f, v: DB.salud[f].horas }));
   let h = '';
   if (fcr.length) h += `<section class="c"><div class="fila-k"><span class="k">Pulso en reposo</span><span class="k">últ. <b class="big blanco">${fcr[fcr.length - 1].v}</b></span></div>${graficoSerie(fcr, { unidad: 'lpm' })}<p class="meta">Si amanece varios latidos arriba de tu promedio, es señal de cansancio o de que algo se está incubando.</p></section>`;
-  if (sue.length) h += `<section class="c"><div class="fila-k"><span class="k">Sueño</span><span class="k">últ. <b class="big blanco">${fmtHoras(sue[sue.length - 1].v)}</b></span></div>${graficoSerie(sue, { unidad: 'h', banda: [7.5, 8] })}</section>`;
+  if (sue.length) h += `<section class="c"><div class="fila-k"><span class="k">Horas dormido</span><span class="k">últ. <b class="big blanco">${fmtHoras(sue[sue.length - 1].v)}</b></span></div>${graficoSerie(sue, { unidad: 'h', banda: [7.5, 8] })}</section>`;
+  h += graficoHorario(fechas.filter((f) => DB.salud[f].inicio && DB.salud[f].fin).slice(-14));
   return h;
+}
+
+// Horario de sueño: una barra por noche, de la hora en que te dormiste a la que te despertaste.
+function graficoHorario(fechas) {
+  if (!fechas.length) return '';
+  const hs = (t) => { const d = new Date(t); let x = d.getHours() + d.getMinutes() / 60; if (x < 18) x += 24; return x; }; // 18 → 42
+  const hora = (x) => { const m = Math.round((x % 24) * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+  const noches = fechas.map((f) => ({ f, a: hs(DB.salud[f].inicio), b: hs(DB.salud[f].fin) }));
+  const lo = Math.floor(Math.min(...noches.map((n) => n.a)) - 0.5);
+  const hi = Math.ceil(Math.max(...noches.map((n) => n.b)) + 0.5);
+  const W = 340, H = 190, L = 40, R = 10, T = 10, B = 22;
+  const y = (v) => T + ((v - lo) / (hi - lo)) * (H - T - B);
+  const paso = (W - L - R) / noches.length;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" class="svg-g" role="img" aria-label="Horario de sueño por noche">`;
+  for (let v = Math.ceil(lo / 2) * 2; v <= hi; v += 2) svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="g-grid"/><text x="${L - 6}" y="${y(v) + 4}" class="g-eje" text-anchor="end">${hora(v)}</text>`;
+  noches.forEach((n, i) => {
+    const x = L + i * paso + paso * 0.2;
+    svg += `<rect x="${x}" y="${y(n.a)}" width="${paso * 0.6}" height="${Math.max(2, y(n.b) - y(n.a))}" rx="3" class="g-noche"/>`;
+  });
+  svg += `<text x="${L}" y="${H - 6}" class="g-eje">${fechaCorta(noches[0].f)}</text><text x="${W - R}" y="${H - 6}" class="g-eje" text-anchor="end">${fechaCorta(noches[noches.length - 1].f)}</text></svg>`;
+  const media = (v) => v.reduce((a, b) => a + b, 0) / v.length;
+  const desvio = (v) => { const m = media(v); return Math.sqrt(media(v.map((x) => (x - m) ** 2))); };
+  const dA = desvio(noches.map((n) => n.a));
+  const txt = noches.length < 3 ? 'Con unas noches más te muestro cuánto varía tu horario.'
+    : `Te dormís en promedio a las ${hora(media(noches.map((n) => n.a)))} y te despertás a las ${hora(media(noches.map((n) => n.b)))}. Variación: ±${fmtMin(Math.round(dA * 60))}${dA > 1 ? ' (bastante; acercar los horarios suele mejorar cómo te sentís)' : ''}.`;
+  return `<section class="c"><span class="k">Horario de sueño</span>${svg}<p class="meta">${esc(txt)}</p></section>`;
 }
 
 // ---------- historial por ejercicio ----------

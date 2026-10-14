@@ -443,3 +443,4 @@ body.modo-entreno .timer { bottom: calc(var(--safe-b) + 12px); }
 .pegar-txt { width: 100%; min-height: 90px; margin-top: 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--txt); padding: 10px; font: inherit; font-size: .9rem; }
 .aviso.garmin { border-left-color: var(--acc); }
 .aviso.garmin .dos { margin-top: 8px; }
+.g-noche { fill: var(--prot); opacity: .85; }

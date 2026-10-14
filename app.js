@@ -13,7 +13,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const rango = (n) => Array.from({ length: n }, (_, i) => i);
 
 // ---------- datos (localStorage) ----------
-const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {}, fijos: {}, check: {}, peso: {}, entrenos: {}, comida: {}, misAli: [], aliEdit: {} });
+const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {}, fijos: {}, check: {}, peso: {}, entrenos: {}, comida: {}, misAli: [], aliEdit: {}, salud: {}, garmin: { padel: [], ignorados: [] } });
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY));
@@ -329,6 +329,92 @@ function dial(frac, color, centro, label, accion) {
     <span class="k">${label}</span></button>`;
 }
 
+// ---------- Garmin (vía app Salud + Atajo de iOS + portapapeles) ----------
+const ATAJO = 'Entreno';
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+// Texto que arma el Atajo:
+//   ENTRENO
+//   fcr=56
+//   inicio=2026-10-13T00:12:00-03:00
+//   fin=2026-10-13T07:40:00-03:00
+//   padel=2026-10-12;2026-10-14   (opcional)
+function leerSync(texto) {
+  if (!/ENTRENO/i.test(texto || '')) return null;
+  const kv = {};
+  texto.split(/[\n|&]+/).forEach((l) => { const m = l.match(/^\s*([a-záéíóú]+)\s*[=:]\s*(.+?)\s*$/i); if (m) kv[m[1].toLowerCase()] = m[2]; });
+  const fecha = (t) => { const d = new Date(String(t).replace(' ', 'T')); return isNaN(d) ? null : d; };
+  const ini = fecha(kv.inicio);
+  const fin = fecha(kv.fin);
+  let horas = null;
+  if (ini && fin) { const h = (fin - ini) / 36e5; if (h > 2 && h < 15) horas = Math.round(h * 10) / 10; }
+  if (horas == null && num(kv.sueno) != null) { const v = num(kv.sueno); horas = v > 24 ? Math.round((v / 60) * 10) / 10 : v; }
+  const fcr = num(kv.fcr);
+  const padel = String(kv.padel || '').split(/[;,\s]+/).map((x) => (x.match(/\d{4}-\d{2}-\d{2}/) || [])[0]).filter(Boolean);
+  if (fcr == null && horas == null && !padel.length) return null;
+  return { fcr: fcr != null ? Math.round(fcr) : null, horas, padel, dia: fin ? iso(fin) : iso(hoy()) };
+}
+function guardarSync(texto) {
+  const r = leerSync(texto);
+  if (!r) return toast('No encontré datos del Atajo. Corrélo de nuevo y probá otra vez.');
+  const dia = r.dia;
+  DB.salud[dia] = { ...(DB.salud[dia] || {}), ...(r.fcr != null ? { fcr: r.fcr } : {}), ...(r.horas != null ? { horas: r.horas } : {}) };
+  r.padel.forEach((f) => { if (!DB.garmin.padel.includes(f)) DB.garmin.padel.push(f); });
+  save();
+  render('inicio', true);
+  const partes = [r.horas != null && `sueño ${fmtHoras(r.horas)}`, r.fcr != null && `pulso ${r.fcr}`].filter(Boolean);
+  toast(`Garmin: ${partes.join(' · ') || 'datos cargados'}`);
+}
+const fmtHoras = (h) => `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+
+// Recuperación: sueño (meta 7,5 h) y pulso en reposo contra tu promedio de 3 semanas.
+function recuperacion(dISO) {
+  const s = DB.salud[dISO];
+  if (!s) return null;
+  const desde = iso(addDays(parseISO(dISO), -21));
+  const prev = Object.keys(DB.salud).filter((f) => f < dISO && f >= desde && DB.salud[f].fcr != null).map((f) => DB.salud[f].fcr);
+  const base = prev.length >= 3 ? prev.reduce((a, b) => a + b, 0) / prev.length : null;
+  const partes = [];
+  if (s.horas != null) partes.push(clamp01((s.horas - 5) / 2.5));
+  const dif = base != null && s.fcr != null ? s.fcr - base : null;
+  if (dif != null) partes.push(clamp01(1 - Math.max(0, dif) / 8));
+  if (!partes.length) return null;
+  let p = Math.round((partes.reduce((a, b) => a + b, 0) / partes.length) * 100);
+  if (dif != null && dif >= 8) p = Math.min(p, 30); // pulso muy alto: nunca verde
+  return { p, horas: s.horas, fcr: s.fcr, base, dif };
+}
+const zonaR = (p) => (p >= 67 ? 'verde' : p >= 40 ? 'amarillo' : 'rojo');
+const COLOR_R = { verde: 'var(--ok)', amarillo: 'var(--warn)', rojo: 'var(--bad)' };
+const RECO_R = {
+  verde: 'Dormiste bien y el pulso está normal: entrená como está planeado.',
+  amarillo: 'Primera ronda al 70 % y escuchá el cuerpo. Si no levanta, sacá una serie por ejercicio.',
+  rojo: 'Pulso alto o poco sueño: hoy mejor zona 2 suave o descanso. Si te sentís mareado, cortá.',
+};
+function padelPendiente(d) {
+  return diasSemana(d).map(iso).filter((f) => DB.garmin.padel.includes(f) && !DB.garmin.ignorados.includes(f) && claveDe(parseISO(f)) !== 'sabado');
+}
+function tarjetaGarmin(d, clave, ent) {
+  const dISO = iso(d);
+  const r = recuperacion(dISO);
+  let h = '';
+  if (r) {
+    const z = zonaR(r.p);
+    const det = [r.horas != null && `Sueño ${fmtHoras(r.horas)}`, r.fcr != null && `pulso en reposo ${r.fcr}${r.dif != null ? ` (${r.dif >= 0 ? '+' : ''}${fmt(r.dif, 0)} vs tu promedio)` : ''}`].filter(Boolean).join(' · ');
+    h += `<p class="reco" style="--z:${COLOR_R[z]}">${esc(RECO_R[z])}<small class="det">${esc(det)}</small></p>`;
+    if (z === 'rojo' && !['z2', 'domingo'].includes(clave) && !ent?.inicio) h += '<button type="button" class="link" data-sesion="z2">Cambiar hoy por zona 2 →</button>';
+  }
+  for (const f of padelPendiente(d)) {
+    h += `<div class="aviso garmin">⌚ Garmin registró pádel el ${esc(diaNombre(parseISO(f)))} ${fechaCorta(f)}.
+      <div class="dos"><button type="button" class="secund" data-ignorar-padel="${f}">Ignorar</button><button type="button" class="secund confirmar" data-poner="${f}|sabado">Marcar en la semana</button></div></div>`;
+  }
+  if (!DB.salud[dISO]) {
+    h += `<div class="c garmin-sync"><span>⌚ <b>Datos del Garmin</b><small>Sueño y pulso de hoy</small></span>
+      <span class="g-btns"><button type="button" class="secund" data-accion="correr-atajo">Traer</button><button type="button" class="secund confirmar" data-accion="pegar-garmin">Pegar</button></span></div>
+      <details class="ayuda-g"><summary>¿Cómo funciona?</summary><p class="mut chico">"Traer" corre el Atajo "${ATAJO}" de tu iPhone, que copia el sueño y el pulso de la app Salud. Volvé con ◀ y tocá "Pegar". Si programaste el Atajo para que corra solo a la mañana, con "Pegar" alcanza.</p></details>
+      <textarea id="pegar-txt" class="pegar-txt" hidden placeholder="Mantené apretado acá y pegá"></textarea>`;
+  }
+  return h;
+}
+
 // ---------- pantalla: INICIO ----------
 const colorDe = (k) => P.sesiones[k].color || 'var(--acc)';
 const tipoNombre = (s) => ({ fuerza: 'Fuerza', cardio: 'Cardio', descanso: 'Descanso' }[s.tipo] || '');
@@ -345,11 +431,14 @@ function vistaInicio() {
   const metaK = E.b.macros?.kcal;
 
   let h = `<header class="ini-top"><span class="k fuerte">Hoy · ${esc(fechaMedia(d))}</span><span class="k">${chipBloque(E)}</span></header>`;
-  h += `<div class="diales">
+  const rec = recuperacion(dISO);
+  h += `<div class="diales${rec ? ' cuatro' : ''}">
+    ${rec ? dial(rec.p / 100, COLOR_R[zonaR(rec.p)], `${rec.p}%`, 'Recuper.', '') : ''}
     ${dial(ejercicios.length ? hechos / ejercicios.length : 0, colorDe(clave), `${hechos}/${ejercicios.length}`, 'Sesión', ent?.inicio && !ent.fin ? 'data-accion="continuar"' : '')}
     ${dial(prot / metaP, 'var(--prot)', `${prot}g`, 'Proteína', 'data-tab="nutri"')}
     ${dial(metaK ? kcal / metaK : 0, 'var(--kcal)', kcal >= 1000 ? `${fmt(kcal / 1000)}k` : `${kcal}`, 'Kcal', 'data-tab="nutri"')}
   </div>`;
+  h += tarjetaGarmin(d, clave, ent);
   h += avisoUnico(d, E, clave);
   h += `<p class="titulo-sec" style="--tc:${colorDe(clave)}">Hoy entrenás</p>`;
   h += tarjetaSesion(S, ent, hechos, ejercicios.length);
@@ -370,6 +459,7 @@ function avisoUnico(d, E, clave) {
   else if (E.fase === 'plan' && E.b.volumenBajo) a = esc(E.b.aviso);
   else if (t && !testCompleto(t.id)) a = `<button type="button" class="link" data-tab="progreso">📏 Semana de tests: cargalos en Progreso →</button>`;
   else if (avisoSeguidos(d)) a = `⚠︎ ${esc(avisoSeguidos(d))} Si llegás cargado, cambiá uno por zona 2.`;
+  else if (rango(7).map((i) => recuperacion(iso(addDays(d, -i)))).filter((r) => r && r.p < 40).length >= 3) a = 'Varios días con recuperación baja esta semana: considerá adelantar la descarga.';
   return a ? `<div class="aviso">${a}</div>` : '';
 }
 
@@ -827,6 +917,7 @@ function vistaProgreso() {
   let h = '<header class="top"><h1 class="big">Progreso</h1></header>';
 
   h += seccionPeso(dISO);
+  h += seccionSalud(dISO);
   h += seccionEjercicios();
 
   h += `<p class="k sec">Tests cada 4 semanas</p><div class="segmentos">${P.tests.fechas.map((x) => `<button type="button" class="${x.id === testSel ? 'on' : ''}" data-test="${x.id}">${esc(x.nombre)}${testCompleto(x.id) ? ' ✓' : ''}</button>`).join('')}</div>`;
@@ -897,6 +988,18 @@ function seccionPeso(dISO) {
   });
   h += graficoSerie(pts, { linea: media, banda: P.tests.pesoObjetivo, unidad: 'kg' });
   h += `<p class="reco" style="--z:${aj.tipo === 'warn' ? 'var(--warn)' : aj.tipo === 'ok' ? 'var(--ok)' : 'var(--line)'}">${esc(aj.txt)}</p></section>`;
+  return h;
+}
+
+// ---------- sueño y pulso (Garmin) ----------
+function seccionSalud(dISO) {
+  const fechas = Object.keys(DB.salud).filter((f) => f <= dISO).sort();
+  if (!fechas.length) return '';
+  const fcr = fechas.filter((f) => DB.salud[f].fcr != null).map((f) => ({ f, v: DB.salud[f].fcr }));
+  const sue = fechas.filter((f) => DB.salud[f].horas != null).map((f) => ({ f, v: DB.salud[f].horas }));
+  let h = '';
+  if (fcr.length) h += `<section class="c"><div class="fila-k"><span class="k">Pulso en reposo</span><span class="k">últ. <b class="big blanco">${fcr[fcr.length - 1].v}</b></span></div>${graficoSerie(fcr, { unidad: 'lpm' })}<p class="meta">Si amanece varios latidos arriba de tu promedio, es señal de cansancio o de que algo se está incubando.</p></section>`;
+  if (sue.length) h += `<section class="c"><div class="fila-k"><span class="k">Sueño</span><span class="k">últ. <b class="big blanco">${fmtHoras(sue[sue.length - 1].v)}</b></span></div>${graficoSerie(sue, { unidad: 'h', banda: [7.5, 8] })}</section>`;
   return h;
 }
 
@@ -1314,6 +1417,7 @@ document.addEventListener('click', (ev) => {
     toast(msg ? `Semana reacomodada: ${msg}` : 'Listo, cambiado');
     return;
   }
+  if (el.dataset.ignorarPadel) { DB.garmin.ignorados.push(el.dataset.ignorarPadel); save(); return render('inicio', true); }
   if (el.dataset.poner) {
     const [f, k] = el.dataset.poner.split('|');
     propuesta = reorganizar(parseISO(f), k, null);
@@ -1361,6 +1465,13 @@ document.addEventListener('click', (ev) => {
     creando = false; busqueda = ''; catSel = 'Mis alimentos'; aliSel = id;
     render('nutri', true);
     return toast(`Creado: ${nombre}. Elegí cuánto comiste.`);
+  }
+  if (acc === 'correr-atajo') { location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(ATAJO)}`; return; }
+  if (acc === 'pegar-garmin') {
+    if (navigator.clipboard?.readText) {
+      navigator.clipboard.readText().then(guardarSync).catch(() => { const t = $('#pegar-txt'); t.hidden = false; t.focus(); });
+    } else { const t = $('#pegar-txt'); t.hidden = false; t.focus(); }
+    return;
   }
   if (acc === 'crea') { DB.crea[dISO] = !DB.crea[dISO]; save(); return render('nutri', true); }
   if (acc === 'foto') { const t = (DB.tests[testSel] ||= {}); t.foto = !t.foto; save(); return render('progreso', true); }
@@ -1446,6 +1557,7 @@ document.addEventListener('input', (ev) => {
     save();
     return;
   }
+  if (el.id === 'pegar-txt') { if (/ENTRENO/i.test(el.value)) guardarSync(el.value); return; }
   if (el.id === 'buscar') { busqueda = el.value; return filtrarAlimentos(el.value); }
   if (el.id === 'peso-hoy') {
     DB.peso[iso(hoy())] = el.value.trim().replace('.', ',');

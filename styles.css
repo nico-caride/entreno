@@ -803,3 +803,72 @@ h3 { font-size: 17px; font-weight: 500; }
 .vacio-det { margin-top: 14px; }
 .tests h3 small { color: var(--mut); }
 .historial { margin-right: 18px; }
+
+/* =====================================================================
+   REDISEÑO · etapa 5: Semana y modo entrenamiento
+   ===================================================================== */
+.flechas { display: flex; gap: 8px; }
+.flechas .ico { width: 40px; height: 40px; }
+.ayuda { margin: 14px 2px; font-size: 14px; line-height: 1.4; color: var(--mut); }
+.dias-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.dia { background: var(--sup); border-radius: 20px; margin: 0; box-shadow: none; overflow: hidden; }
+.dia.pasado { background: none; border: 1px solid #1F1F23; }
+.dia.hoy { box-shadow: none; border: 2px solid var(--ahora); }
+.dia-fila { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto 22px; gap: 10px; align-items: center; min-height: 68px; padding: 0 12px 0 14px; }
+.dia-fila::after { display: none; }
+.dia-fila .dn { display: flex; flex-direction: column; font-size: 15px; font-weight: 500; grid-column: auto; }
+.dia-fila .dn small { font-size: 13px; color: var(--mut); font-weight: 400; }
+.dia-fila .dn small.hoy-t { color: var(--ahora); }
+.ses { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ses b { font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tipo-l { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--mut); }
+.tipo-l i, .pto { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.est { font-size: 13px; color: var(--mut); white-space: nowrap; }
+.dia-fila .asa { color: #5A5A60; grid-row: auto; font-size: 1rem; letter-spacing: -.2em; }
+.dia-body { border-top: 1px solid var(--linea); padding: 12px 14px; }
+.dia-body .k { margin: 4px 0 6px; }
+.mover { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.mover .secund.chico { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
+.mover.poner button { border-color: rgba(244,243,239,.3); color: var(--txt); }
+.dia.destino { box-shadow: inset 0 0 0 2px var(--entreno); background: rgba(69,123,241,.12); }
+.prev-dia.cambia { border: 1px solid var(--entreno); }
+.propuesta { margin-top: 12px; box-shadow: inset 0 0 0 1.5px var(--entreno); }
+.bloque-f { padding: 10px 0; border-top: 1px solid var(--linea); }
+.bloque-f:first-child { border-top: 0; }
+.bloque-f p { margin: 4px 0 0; font-size: 14px; }
+.bloque-f.actual-b b { color: var(--ahora); }
+
+/* entrenando */
+.en-top { grid-template-columns: 44px 1fr 44px; }
+.reloj { font-size: 30px; font-weight: 400; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.en-prog { text-align: right; font-size: 15px; font-weight: 500; color: #8FB0FF; }
+.barra { background: #1F1F23; margin-top: 14px; }
+.barra span { background: var(--entreno); }
+.en-sub { margin: 12px 2px 14px; font-size: 14px; color: var(--mut); }
+.en-lista { display: flex; flex-direction: column; gap: 6px; }
+.en-lista .k.sec { margin: 14px 4px 2px; }
+.hecho-f { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 48px; padding: 0 14px; border-radius: 16px; border: 1px solid var(--linea); background: none; color: var(--mut); font-size: 15px; text-align: left; }
+.hecho-n { display: flex; align-items: center; gap: 10px; }
+.ok-c { width: 22px; height: 22px; border-radius: 50%; background: var(--entreno); color: var(--bg); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.pend { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 56px; padding: 0 14px 0 16px; border-radius: 18px; border: 0; background: var(--sup); color: var(--txt); font-size: 16px; text-align: left; }
+.v { color: var(--mut); font-size: 14px; white-space: nowrap; }
+.actual { border-radius: 24px; background: #131316; border: 1.5px solid var(--entreno); padding: 18px 16px 16px; margin: 6px 0; }
+.actual .ej-top h3 { font-size: 23px; line-height: 1.15; }
+.actual .dosis { font-family: var(--num); font-size: 19px; font-weight: 400; color: #8FB0FF; }
+.actual > .k { margin-top: 6px; }
+.act-links { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.act-links .link.chico { font-size: 14px; }
+.sube { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 10px 12px; border-radius: 14px; font-size: 15px; }
+.sube b { font-weight: 600; }
+.sube small { opacity: .75; }
+.fila-h { font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--dim); }
+.fila-h, .serie { grid-template-columns: 20px minmax(0, 1fr) 70px 58px 48px; }
+.serie input { background: var(--bg); border-color: #34343A; font-size: 21px; font-weight: 400; }
+.ck { border-color: #3A3A3F; color: var(--dim); }
+.ck.on { color: var(--bg); }
+.serie.on input { border-color: transparent; background: none; color: #8FB0FF; }
+.secund.terminar { width: 100%; min-height: 52px; margin-top: 18px; }
+.timer-t { font-size: 56px; }
+.timer-lbl { margin-bottom: 8px; }
+.timer-btns button { min-height: 52px; padding: 0 18px; }
+.timer-bar { background: #1F1F23; }

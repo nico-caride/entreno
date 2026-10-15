@@ -25,7 +25,7 @@ function load() {
   return blank();
 }
 let DB = load();
-const VERSION = 14; // subirla junto con el ?v= de index.html
+const VERSION = 15; // subirla junto con el ?v= de index.html
 // Candado: si de golpe hay muchos menos registros que los guardados, no pisa los datos.
 const cantidad = (d) => ['logs', 'comida', 'salud', 'peso', 'entrenos'].reduce((a, k) => a + Object.keys(d?.[k] || {}).length, 0);
 let cantGuardada = cantidad(DB);
@@ -607,7 +607,7 @@ function vistaDiaPasado(fISO) {
   }
   h += '</section>';
   const enSemana = fISO >= iso(lunesDe(hoy()));
-  h += `<div class="links">${ent?.inicio ? `<button type="button" class="link" data-resumen="${fISO}">Ver resumen</button>` : ''}${enSemana ? `<button type="button" class="link" data-cambiar-dia="${d.getDay()}">Cambiar lo que hiciste</button>` : ''}</div>`;
+  h += `<div class="links">${ent?.inicio ? `<button type="button" class="link" data-resumen="${fISO}">Ver resumen</button>` : ''}${enSemana ? `<button type="button" class="link" data-cambiar-dia="${fISO}">Cambiar lo que hiciste</button>` : ''}</div>`;
 
   // comida
   const { prot, kcal } = totales(fISO);
@@ -753,21 +753,26 @@ function vistaEntreno() {
   if (!actual) actual = ejercicios.find((x) => !completo(x, dISO));
 
   let h = `<header class="en-top">
-      <button type="button" class="icono" data-accion="salir" aria-label="Volver al inicio">✕</button>
-      <span class="big reloj" id="reloj">${reloj(ent.inicio)}</span>
-      <span class="k azul">${hechos}/${ejercicios.length}</span>
+      <button type="button" class="ico" data-accion="salir" aria-label="Volver a Hoy">${ICON_ATRAS}</button>
+      <span class="reloj" id="reloj">${reloj(ent.inicio)}</span>
+      <span class="en-prog">${hechos}/${ejercicios.length}</span>
     </header>
     <div class="barra"><span style="width:${ejercicios.length ? (hechos / ejercicios.length) * 100 : 0}%"></span></div>
-    <p class="en-sub">${esc(S.s.titulo)}${S.lugar === 'casa' ? ' · 🏠 Casa' : ''}${S.s.tipo !== 'descanso' ? ' · <span class="warn">primera ronda al 70 %</span>' : ''}</p>`;
-
+    <p class="en-sub">${esc(S.s.titulo)} · ${S.lugar === 'casa' ? 'Casa' : 'Gimnasio'}${S.s.tipo !== 'descanso' ? ' · <span class="aviso-t">primera ronda al 70 %</span>' : ''}</p><div class="en-lista">`;
+  const OK = '<span class="ok-c"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></span>';
+  let paso = false; // ya pasamos el ejercicio actual
   for (const x of S.items) {
     if (x.seccion) { h += `<p class="k sec">${esc(x.seccion)}</p>`; continue; }
-    if (actual && x.logId === actual.logId) h += bloqueActual(x, dISO);
-    else if (completo(x, dISO)) h += `<button type="button" class="fila hecha" data-ir="${esc(x.logId)}"><span>✓ ${esc(x.nombre)}</span><span class="mut">${esc(resumenHecho(x, dISO))}</span></button>`;
-    else h += `<button type="button" class="fila" data-ir="${esc(x.logId)}"><span>${esc(x.nombre)}</span><span class="mut">${esc(dosis(x))}</span></button>`;
+    if (actual && x.logId === actual.logId) { h += bloqueActual(x, dISO); paso = true; continue; }
+    if (completo(x, dISO)) h += `<button type="button" class="hecho-f" data-ir="${esc(x.logId)}"><span class="hecho-n">${OK}${esc(x.nombre)}</span><span class="v">${esc(resumenHecho(x, dISO))}</span></button>`;
+    else {
+      if (paso) { h += '<p class="k sec">Después</p>'; paso = false; }
+      h += `<button type="button" class="pend" data-ir="${esc(x.logId)}"><span>${esc(x.nombre)}</span><span class="v">${esc(dosis(x))}</span></button>`;
+    }
   }
+  h += '</div>';
   if (!actual) h += '<p class="todo-ok">Completaste todo. ¡Bien ahí!</p>';
-  h += `<button type="button" class="primario${actual ? ' gris' : ''}" data-accion="terminar">Terminar</button>`;
+  h += `<button type="button" class="${actual ? 'secund terminar' : 'primario'}" data-accion="terminar">Terminar sesión</button>`;
   return h;
 }
 
@@ -788,16 +793,13 @@ function bloqueActual(x, dISO) {
   const meta = [desc && `⏱ ${esc(desc)}`, x.nota && esc(x.nota), x.reemplaza && `en lugar de ${esc(x.reemplaza)}`].filter(Boolean).join(' · ');
 
   let h = `<article class="actual" id="actual" data-id="${esc(x.logId)}" data-n="${n}" data-rest="${x.descanso || 0}" data-tope="${usaReps(x) ? topeReps(x) : ''}" data-nombre="${esc(x.nombre)}">
-    <div class="ej-top"><h3>${tec ? `<button type="button" class="nombre" aria-expanded="false">${esc(x.nombre)} <span class="info">ⓘ</span></button>` : esc(x.nombre)}</h3><span class="dosis">${esc(dosis(x))}</span></div>
-    ${meta ? `<p class="meta">${meta}</p>` : ''}
+    <div class="ej-top"><h3>${esc(x.nombre)}</h3><span class="dosis">${esc(dosis(x))}</span></div>
+    ${meta ? `<p class="k">${meta.replace('⏱ ', 'Descanso ')}</p>` : ''}
+    <div class="act-links">${tec ? '<button type="button" class="link chico" data-accion="ver-tec">Técnica y video</button>' : ''}${x.opciones?.length ? '<button type="button" class="link chico" data-accion="ver-opciones">Cambiar ejercicio</button>' : ''}${x.sinPeso ? '' : `<button type="button" class="link chico" data-historial="${esc(x.logId)}">Historial</button>`}</div>
     ${tec ? `<div class="tec" hidden>${tecHTML(tec)}</div>` : ''}
+    ${x.opciones?.length ? `<div class="opc-ej" hidden>${x.opciones.map(([k, n]) => `<button type="button" class="secund" data-opcion="${esc(x.base)}|${k}">${k === 'orig' ? '↺ ' : ''}${esc(n)}</button>`).join('')}</div>` : ''}
     ${x.lista ? listaHTML(x) : ''}`;
-  if (!x.sinPeso) h += `<button type="button" class="link chico historial" data-historial="${esc(x.logId)}">Historial</button>`;
-  if (x.opciones?.length) {
-    h += `<button type="button" class="link chico" data-accion="ver-opciones">⇄ Cambiar ejercicio</button>
-      <div class="opc-ej" hidden>${x.opciones.map(([k, n]) => `<button type="button" class="secund" data-opcion="${esc(x.base)}|${k}">${k === 'orig' ? '↺ ' : ''}${esc(n)}</button>`).join('')}</div>`;
-  }
-  if (sug) h += `<p class="sube">⬆︎ ${sug.w ? `Hoy subí a <b>${esc(sug.w)} kg</b> <small>(antes ${esc(sug.antes)})</small>` : esc(sug.txt)}</p>`;
+  if (sug) h += `<p class="sube"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg><span>${sug.w ? `Hoy subí a <b>${esc(sug.w)} kg</b> <small>(antes ${esc(sug.antes)})</small>` : esc(sug.txt)}</span></p>`;
 
   if (!x.sinPeso) {
     h += '<div class="tabla"><div class="fila-h"><span>#</span><span>Anterior</span><span>kg</span><span>Reps</span><span></span></div>';
@@ -874,69 +876,75 @@ function cardVer(x, dISO) {
 }
 
 let propuesta = null;
+let semanaS = 0; // semana que se mira en la pestaña Semana (0 = esta)
 function vistaSemana() {
   const d = hoy();
-  const E = estado(iso(d));
-  let h = `<header class="top"><h1 class="big">Semana</h1><p class="chip">${chipBloque(E)}</p></header>`;
-  const dias = diasSemana(d);
+  const hISO = iso(d);
+  const ref = addDays(d, semanaS * 7);
+  const dias = diasSemana(ref);
+  const E = estado(iso(ref));
+  const rangoTxt = `${dias[0].getDate()}–${dias[6].getDate()} ${dias[6].toLocaleDateString('es-AR', { month: 'short' }).replace('.', '')}`;
+  const flecha = (dir) => `<button type="button" class="ico" data-semana-s="${dir}" aria-label="Semana ${dir < 0 ? 'anterior' : 'siguiente'}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dir < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'}"/></svg></button>`;
+  let h = `<header class="cab"><div><h1>Semana</h1><span class="k">${rangoTxt} · ${chipBloque(E)}</span></div><div class="flechas">${flecha(-1)}${flecha(1)}</div></header>`;
+  if (semanaS !== 0) h += `<button type="button" class="link chico" data-semana-s="0">Volver a esta semana</button>`;
 
   if (propuesta) {
     const seg = seguidosEn(propuesta);
-    h += `<section class="c propuesta"><p class="k azul">Así queda la semana</p>
-      <p class="chico mut">${esc(textoCambios(propuesta) || 'Sin otros cambios.')}</p>
-      ${seg.length ? `<p class="chico warn">⚠︎ Quedan días fuertes seguidos: ${esc(seg.join(', '))}.</p>` : ''}
+    h += `<section class="c propuesta"><p class="t-k">Así queda la semana</p>
+      <p class="mut chico">${esc(textoCambios(propuesta) || 'Sin otros cambios.')}</p>
+      ${seg.length ? `<p class="aviso-t">Quedan días fuertes seguidos: ${esc(seg.join(', '))}.</p>` : ''}
       <div class="dos"><button type="button" class="secund" data-accion="cancelar-prop">Cancelar</button><button type="button" class="secund confirmar" data-accion="confirmar-prop">Confirmar</button></div>
-    </section>`;
+    </section><div class="dias-lista">`;
     propuesta.dias.forEach((fISO, i) => {
       const k = propuesta.despues[i];
       const cambia = k !== propuesta.antes[i];
-      h += `<div class="dia prev-dia${cambia ? ' cambia' : ''}${fISO === propuesta.destino ? ' destino-fijo' : ''}">
-        <span class="dn">${DIAS[parseISO(fISO).getDay()]}${fISO === propuesta.destino ? ' 📌' : ''}</span>
-        <span class="dt">${esc(titulo(k))}${cambia ? ` <span class="antes">antes ${esc(P.sesiones[propuesta.antes[i]].corto)}</span>` : ''}</span>
-      </div>`;
+      const f = parseISO(fISO);
+      h += `<div class="dia prev-dia${cambia ? ' cambia' : ''}"><div class="dia-fila"><span class="dn">${DIAS[f.getDay()].slice(0, 3)}<small>${f.getDate()}</small></span>
+        <span class="ses"><b>${esc(titulo(k))}${fISO === propuesta.destino ? ' 📌' : ''}</b><span class="tipo-l"><i style="background:${colorDe(k)}"></i>${cambia ? `antes: ${esc(titulo(propuesta.antes[i]))}` : esc(tipoNombre(P.sesiones[k]))}</span></span><span class="est"></span><span></span></div></div>`;
     });
-    return h;
+    return `${h}</div>`;
   }
 
-  if (E.descarga) h += '<div class="aviso"><b>Semana de descarga:</b> la mitad de las series y el viernes zona 2.</div>';
-  h += '<p class="mut chico ayuda">Tocá un día para cambiar lo que tiene (también los que ya pasaron) o mantenelo apretado y arrastralo. El resto se reacomoda solo.</p>';
-  if (dias.some((f) => movido(f) || fijado(f))) h += '<button type="button" class="cambiar" data-accion="restaurar">↺ Volver la semana al orden original</button>';
+  if (E.descarga) h += filaAviso('<b>Semana de descarga:</b> la mitad de las series y el viernes zona 2.');
+  h += '<p class="ayuda">Tocá un día para ver o cambiar lo que tiene. Mantenelo apretado para moverlo: el resto se reacomoda solo.</p>';
+  if (dias.some((f) => movido(f) || fijado(f))) h += '<button type="button" class="link chico" data-accion="restaurar">↺ Volver la semana al orden original</button>';
 
+  h += '<div class="dias-lista">';
   dias.forEach((f) => {
     const dia = f.getDay();
     const fISO = iso(f);
     const S = armarSesion(f);
-    const esHoy = fISO === iso(d);
+    const esHoy = fISO === hISO;
+    const pasado = fISO < hISO;
     const bloq = bloqueado(f);
     const prevD = addDays(f, -1);
     const seguidos = pesada(f) && pesada(prevD) && (movido(f) || movido(prevD));
-    const abierto = diaAbierto === dia;
-    h += `<div class="dia${esHoy ? ' hoy' : ''}${bloq ? ' bloq' : ''}${fISO < iso(d) ? ' pasado' : ''}" data-dia="${dia}" data-fecha="${fISO}" style="--sc:${colorDe(S.clave)}">
-      <div class="dia-fila"${bloq ? '' : ` data-arr="${fISO}"`} data-abrir="${dia}">
-        ${bloq ? '<span class="asa off" aria-hidden="true"></span>' : `<span class="asa" aria-hidden="true">⋮⋮</span>`}
-        <span class="dn">${DIAS[dia]}${esHoy ? ' <em>hoy</em>' : ''}${hechoEl(f) ? ' <span class="tag ok">✓</span>' : ''}${fijado(f) ? ' <span class="tag">📌 fijo</span>' : movido(f) ? ' <span class="tag">movido</span>' : ''}</span>
-        <span class="dt"><span class="tipo-k">${esc(tipoNombre(S.s))}</span> ${esc(S.s.titulo)}${seguidos ? ' <span class="warn">⚠︎ 2 fuertes seguidos</span>' : ''}</span>
-        <span class="dd">${esc(S.s.duracion || '')}</span>
+    const abierto = diaAbierto === fISO;
+    const est = hechoEl(f) ? '✓ Hecha' : fijado(f) ? '📌 fijo' : movido(f) ? 'movido' : (pasado ? '' : esc(S.s.duracion || ''));
+    h += `<div class="dia${esHoy ? ' hoy' : ''}${bloq ? ' bloq' : ''}${pasado ? ' pasado' : ''}" data-dia="${dia}" data-fecha="${fISO}">
+      <div class="dia-fila"${bloq ? '' : ` data-arr="${fISO}"`} data-abrir="${fISO}">
+        <span class="dn">${DIAS[dia].slice(0, 3)}<small${esHoy ? ' class="hoy-t"' : ''}>${esHoy ? 'Hoy' : f.getDate()}</small></span>
+        <span class="ses"><b>${esc(S.s.titulo)}</b><span class="tipo-l"><i style="background:${colorDe(S.clave)}"></i>${esc(tipoNombre(S.s))}${S.s.pesada ? ' · fuerte' : ''}${seguidos ? ' · <span class="aviso-t">2 fuertes seguidos</span>' : ''}</span></span>
+        <span class="est">${est}</span>
+        ${bloq ? CHEV : '<span class="asa" aria-hidden="true">⋮⋮</span>'}
       </div>
       <div class="dia-body"${abierto ? '' : ' hidden'}>
-        ${editable(f) ? `<div class="mover poner"><span class="meta">${fISO < iso(d) ? 'Ese día hiciste:' : 'Cambiar por:'}</span>${Object.keys(P.sesiones).filter((k) => k !== S.clave).map((k) => `<button type="button" data-poner="${fISO}|${k}" style="--sc:${colorDe(k)}">${esc(P.sesiones[k].corto || titulo(k))}</button>`).join('')}</div>` : ''}
-        ${bloq ? '' : `<div class="mover"><span class="meta">Mover a:</span>${dias.filter((g) => g !== f && !bloqueado(g)).map((g) => `<button type="button" data-mover="${fISO}|${iso(g)}">${DIAS[g.getDay()].slice(0, 3)}</button>`).join('')}</div>`}
+        ${editable(f) ? `<p class="k">${pasado ? 'Ese día hiciste' : 'Cambiar por'}</p><div class="mover poner">${Object.keys(P.sesiones).filter((k) => k !== S.clave).map((k) => `<button type="button" class="secund chico" data-poner="${fISO}|${k}"><i class="pto" style="background:${colorDe(k)}"></i>${esc(P.sesiones[k].corto || titulo(k))}</button>`).join('')}</div>` : ''}
+        ${bloq ? '' : `<p class="k">Mover a</p><div class="mover">${dias.filter((g) => g !== f && !bloqueado(g)).map((g) => `<button type="button" class="secund chico" data-mover="${fISO}|${iso(g)}">${DIAS[g.getDay()].slice(0, 3)}</button>`).join('')}</div>`}
+        ${pasado ? `<button type="button" class="link chico" data-ver-dia-ir="${fISO}">Ver lo que hiciste ese día</button>` : ''}
         ${S.s.sub ? `<p class="meta">${esc(S.s.sub)}</p>` : ''}${S.items.map((x) => cardVer(x, S.dISO)).join('')}
       </div>
     </div>`;
   });
+  h += '</div>';
 
-  h += '<h2>Bloques</h2>';
-  h += P.bloques.map((b) => `<div class="card bloque${b === E.b && E.fase === 'plan' ? ' actual-b' : ''}">
-      <h3>${esc(b.etiqueta)}</h3>
-      <p class="meta">${fechaCorta(b.desde)} – ${fechaCorta(b.hasta)}${b.descarga ? ` · descarga ${fechaCorta(b.descarga.desde)}–${fechaCorta(b.descarga.hasta)}` : ''}</p>
-      <p><b>Fuerza:</b> ${esc(b.fuerza)}</p>
-      <p><b>Viernes:</b> ${esc(b.viernesTxt)}</p>
-      <p><b>Comida:</b> ${esc(b.comida)}</p>
-    </div>`).join('');
-  h += `<section class="card"><h3>Reglas de ajuste</h3><ul class="reglas">${P.reglas.ajuste.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>`;
-  h += `<section class="card seguridad"><h3>Seguridad (disautonomía)</h3><ul class="reglas">${P.reglas.seguridad.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>`;
-  h += `<section class="card"><h3>Progresión</h3><p>${esc(P.reglas.progresion)}</p></section>`;
+  const guia = (t, cuerpo, der = '') => `<details class="guia-f"><summary><span>${t}</span><span class="fr-d">${der}${CHEV}</span></summary><div class="guia-c">${cuerpo}</div></details>`;
+  h += '<p class="k guia-t">El plan</p><div class="guia">';
+  h += guia('Bloques', P.bloques.map((b) => `<div class="bloque-f${b === E.b && E.fase === 'plan' ? ' actual-b' : ''}"><b>${esc(b.etiqueta)}</b><p class="meta">${fechaCorta(b.desde)} – ${fechaCorta(b.hasta)}${b.descarga ? ` · descarga ${fechaCorta(b.descarga.desde)}–${fechaCorta(b.descarga.hasta)}` : ''}</p><p>Fuerza: ${esc(b.fuerza)}</p><p>Viernes: ${esc(b.viernesTxt)}</p><p>Comida: ${esc(b.comida)}</p></div>`).join(''), `<span class="v">${esc(E.b.etiqueta.split(' · ')[0])}</span>`);
+  h += guia('Reglas de ajuste', `<ul class="reglas">${P.reglas.ajuste.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`);
+  h += guia('Seguridad (disautonomía)', `<ul class="reglas">${P.reglas.seguridad.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`);
+  h += guia('Progresión', `<p class="meta">${esc(P.reglas.progresion)}</p>`);
+  h += '</div>';
   return h;
 }
 
@@ -1768,11 +1776,10 @@ function tildarSerie(btn) {
 document.addEventListener('click', (ev) => {
   if (sinClick) { sinClick = false; ev.preventDefault(); return; }
   const filaDia = ev.target.closest('[data-abrir]');
-  if (filaDia) {
-    const dia = +filaDia.dataset.abrir;
+  if (filaDia && !propuesta) {
     const body = filaDia.parentElement.querySelector('.dia-body');
     body.hidden = !body.hidden;
-    diaAbierto = body.hidden ? null : dia;
+    diaAbierto = body.hidden ? null : filaDia.dataset.abrir;
     return;
   }
   const el = ev.target.closest('button, summary');
@@ -1783,7 +1790,7 @@ document.addEventListener('click', (ev) => {
   if (el.dataset.tab) {
     propuesta = null;
     // tocar una pestaña de la barra vuelve a hoy
-    if (el.closest('.nav')) { diaVer = null; comidaDia = null; semanaVista = 0; resumenDia = null; detalle = null; volverA = null; }
+    if (el.closest('.nav')) { diaVer = null; comidaDia = null; semanaVista = 0; semanaS = 0; resumenDia = null; detalle = null; volverA = null; }
     return render(el.dataset.tab);
   }
 
@@ -1890,6 +1897,11 @@ document.addEventListener('click', (ev) => {
     toast(msg ? `Semana reacomodada: ${msg}` : 'Listo, cambiado');
     return;
   }
+  if (el.hasAttribute('data-semana-s')) {
+    semanaS = el.dataset.semanaS === '0' ? 0 : semanaS + (+el.dataset.semanaS);
+    diaAbierto = null;
+    return render('semana', true);
+  }
   if (el.hasAttribute('data-semana')) {
     semanaVista = el.dataset.semana === '0' ? 0 : semanaVista + (+el.dataset.semana);
     return render(tab, true);
@@ -1907,7 +1919,7 @@ document.addEventListener('click', (ev) => {
     return render('nutri');
   }
   if (el.dataset.resumen) { resumenDia = el.dataset.resumen; return render('resumen'); }
-  if (el.dataset.cambiarDia) { diaAbierto = +el.dataset.cambiarDia; return render('semana'); }
+  if (el.dataset.cambiarDia) { diaAbierto = el.dataset.cambiarDia; semanaS = 0; return render('semana'); }
   if (el.dataset.ej || el.dataset.historial) {
     ejSel = el.dataset.ej || el.dataset.historial;
     ejLugar = null;
@@ -1941,7 +1953,8 @@ document.addEventListener('click', (ev) => {
   const acc = el.dataset.accion;
   if (!acc) return;
   const ent = DB.entrenos[dISO];
-  if (acc === 'ver-opciones') { const o = el.nextElementSibling; o.hidden = !o.hidden; return; }
+  if (acc === 'ver-opciones') { const o = el.closest('article').querySelector('.opc-ej'); o.hidden = !o.hidden; return; }
+  if (acc === 'ver-tec') { const o = el.closest('article').querySelector(':scope > .tec'); o.hidden = !o.hidden; return; }
   if (acc === 'cambiar') { const o = $('#opciones'); o.hidden = !o.hidden; return; }
   if (acc === 'verlista') { const o = $('#prev'); o.hidden = !o.hidden; return; }
   if (acc === 'empezar') {
@@ -1970,7 +1983,7 @@ document.addEventListener('click', (ev) => {
   if (acc === 'reabrir') { if (ent) { delete ent.fin; save(); } return render('entreno'); }
   if (acc === 'confirmar-prop') { aplicar(propuesta); const m = textoCambios(propuesta); propuesta = null; render('semana', true); return toast(m ? `Listo: ${m}` : 'Listo'); }
   if (acc === 'cancelar-prop') { propuesta = null; return render('semana', true); }
-  if (acc === 'restaurar') { restaurarSemana(hoy()); render('semana', true); return toast('Semana restaurada'); }
+  if (acc === 'restaurar') { restaurarSemana(addDays(hoy(), semanaS * 7)); render('semana', true); return toast('Semana restaurada'); }
 
   if (acc === 'crear-ali') { creando = !creando; render('nutri', true); if (creando) $('#nv-n')?.focus(); return; }
   if (acc === 'guardar-nuevo') {

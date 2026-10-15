@@ -25,7 +25,7 @@ function load() {
   return blank();
 }
 let DB = load();
-const VERSION = 11; // subirla junto con el ?v= de index.html
+const VERSION = 12; // subirla junto con el ?v= de index.html
 // Candado: si de golpe hay muchos menos registros que los guardados, no pisa los datos.
 const cantidad = (d) => ['logs', 'comida', 'salud', 'peso', 'entrenos'].reduce((a, k) => a + Object.keys(d?.[k] || {}).length, 0);
 let cantGuardada = cantidad(DB);
@@ -457,35 +457,61 @@ function recuperacion(dISO) {
 const zonaR = (p) => (p >= 67 ? 'verde' : p >= 40 ? 'amarillo' : 'rojo');
 const COLOR_R = { verde: 'var(--ok)', amarillo: 'var(--warn)', rojo: 'var(--bad)' };
 const RECO_R = {
-  verde: 'Dormiste bien y el pulso está normal: entrená como está planeado.',
-  amarillo: 'Primera ronda al 70 % y escuchá el cuerpo. Si no levanta, sacá una serie por ejercicio.',
-  rojo: 'Pulso alto o poco sueño: hoy mejor zona 2 suave o descanso. Si te sentís mareado, cortá.',
+  verde: ['Dormiste bien y el pulso está normal.', 'Entrená como está planeado.'],
+  amarillo: ['Recuperación a medias.', 'Primera ronda al 70 % y escuchá el cuerpo. Si no levanta, sacá una serie por ejercicio.'],
+  rojo: ['Pulso alto o poco sueño.', 'Hoy mejor zona 2 suave o descanso. Si te sentís mareado, cortá.'],
 };
 function padelPendiente(d) {
   return diasSemana(d).map(iso).filter((f) => DB.garmin.padel.includes(f) && !DB.garmin.ignorados.includes(f) && claveDe(parseISO(f)) !== 'sabado');
 }
-function tarjetaGarmin(d, clave, ent) {
+const ICON_IR = '<span class="ir" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F4F3EF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></span>';
+const ICON_AVISO = '<svg class="ic-aviso" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5B94A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4.5M12 17.5v.01"/></svg>';
+const filaAviso = (html, extra = '') => `<div class="aviso">${ICON_AVISO}<div class="aviso-txt">${html}${extra}</div></div>`;
+
+// Héroe de Hoy: recuperación en grande; si no hay datos del Garmin, la tarjeta para traerlos.
+function heroeRecuperacion(d) {
   const dISO = iso(d);
   const r = recuperacion(dISO);
-  let h = '';
-  if (r) {
-    const z = zonaR(r.p);
-    const fases = [r.profundo != null && `profundo ${fmtMin(r.profundo)}`, r.rem != null && `REM ${fmtMin(r.rem)}`, r.despierto != null && `despierto ${fmtMin(r.despierto)}`].filter(Boolean).join(', ');
-    const det = [r.horas != null && `Dormiste ${fmtHoras(r.horas)}${fases ? ` (${fases})` : ''}`, r.fcr != null && `pulso en reposo ${r.fcr}${r.dif != null ? ` (${r.dif >= 0 ? '+' : ''}${fmt(r.dif, 0)} vs tu promedio)` : ''}`].filter(Boolean).join(' · ');
-    h += `<p class="reco" style="--z:${COLOR_R[z]}">${esc(RECO_R[z])}<small class="det">${esc(det)}</small></p>`;
-    if (z === 'rojo' && !['z2', 'domingo'].includes(clave) && !ent?.inicio) h += '<button type="button" class="link" data-sesion="z2">Cambiar hoy por zona 2 →</button>';
-  }
-  for (const f of padelPendiente(d)) {
-    h += `<div class="aviso garmin">⌚ Garmin registró pádel el ${esc(diaNombre(parseISO(f)))} ${fechaCorta(f)}.
-      <div class="dos"><button type="button" class="secund" data-ignorar-padel="${f}">Ignorar</button><button type="button" class="secund confirmar" data-poner="${f}|sabado">Marcar en la semana</button></div></div>`;
-  }
-  if (!DB.salud[dISO]) {
-    h += `<div class="c garmin-sync"><span>⌚ <b>Datos del Garmin</b><small>Sueño y pulso de hoy</small></span>
-      <span class="g-btns"><button type="button" class="secund" data-accion="correr-atajo">Traer</button><button type="button" class="secund confirmar" data-accion="pegar-garmin">Pegar</button></span></div>
+  if (!r) {
+    return `<section class="c garmin-sync">
+      <div class="g-cab"><span><b>Datos del Garmin</b><small>Sueño y pulso de anoche, para calcular tu recuperación</small></span></div>
+      <div class="dos"><button type="button" class="secund" data-accion="correr-atajo">Traer</button><button type="button" class="secund" data-accion="pegar-garmin">Pegar</button></div>
       <details class="ayuda-g"><summary>¿Cómo funciona?</summary><p class="mut chico">"Traer" corre el Atajo "${ATAJO}" de tu iPhone, que copia el sueño y el pulso de la app Salud. Volvé con ◀ y tocá "Pegar". Si programaste el Atajo para que corra solo a la mañana, con "Pegar" alcanza.</p></details>
-      <textarea id="pegar-txt" class="pegar-txt" hidden placeholder="Mantené apretado acá y pegá"></textarea>`;
+      <textarea id="pegar-txt" class="pegar-txt" hidden placeholder="Mantené apretado acá y pegá"></textarea>
+    </section>`;
   }
-  return h;
+  const z = zonaR(r.p);
+  const [titulo, consejo] = RECO_R[z];
+  return `<button type="button" class="heroe" data-tab="progreso" aria-label="Recuperación ${r.p} %, ver sueño y pulso">
+    <span class="heroe-k">Recuperación</span>
+    <span class="heroe-n"><span class="dot">${r.p}</span><span class="heroe-u">%</span></span>
+    <span class="ruler"><span class="tri" style="left:calc(${r.p}% - 7px)"></span><span class="mk" style="left:calc(${r.p}% - 1.5px)"></span></span>
+    <span class="heroe-t">${esc(titulo)}<br><span class="mut">${esc(consejo)}</span></span>
+  </button>`;
+}
+function avisosPadel(d) {
+  return padelPendiente(d).map((f) => filaAviso(`Garmin registró pádel el ${esc(diaNombre(parseISO(f)))} ${fechaCorta(f)}.`,
+    `<div class="aviso-acc"><button type="button" class="link chico" data-ignorar-padel="${f}">Ignorar</button><button type="button" class="link chico" data-poner="${f}|sabado">Marcar en la semana</button></div>`)).join('');
+}
+
+// Tira de días: semana actual (o anteriores con la flecha). Días futuros no se tocan.
+let semanaVista = 0; // 0 = esta semana, -1 = la anterior…
+function tiraDias(diaVisto) {
+  const h = hoy();
+  const hISO = iso(h);
+  const lunes = addDays(lunesDe(h), semanaVista * 7);
+  const dias = ORDEN.map((_, k) => addDays(lunes, k));
+  return `<nav class="tira-dias" aria-label="Días de la semana">
+    <span class="td"><button type="button" class="tdc atras" data-semana="-1" aria-label="Semana anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F4F3EF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><span class="tdp"></span></span>
+    ${dias.map((f) => {
+      const fISO = iso(f);
+      const futuro = fISO > hISO;
+      const cls = ['tdc', fISO === diaVisto ? 'sel' : '', fISO === hISO ? 'hoy' : '', futuro ? 'fut' : ''].filter(Boolean).join(' ');
+      const letra = DIAS[f.getDay()][0];
+      const punto = hechoEl(f) ? '<span class="tdp on"></span>' : '<span class="tdp"></span>';
+      return `<span class="td">${futuro ? `<span class="${cls}">${letra}</span>` : `<button type="button" class="${cls}" data-ver-dia="${fISO}" aria-label="${DIAS[f.getDay()]} ${f.getDate()}">${letra}</button>`}${punto}</span>`;
+    }).join('')}
+  </nav>${semanaVista < 0 ? '<button type="button" class="link chico volver-hoy" data-semana="0">Hoy ›</button>' : ''}`;
 }
 
 // ---------- pantalla: INICIO ----------
@@ -496,31 +522,44 @@ function vistaInicio() {
   const d = hoy();
   const dISO = iso(d);
   const S = armarSesion(d);
-  const { s, E, clave } = S;
+  const { E, clave } = S;
   const ent = DB.entrenos[dISO];
   const ejercicios = ejerciciosDe(S);
   const hechos = ejercicios.filter((x) => completo(x, dISO)).length;
+
+  let h = `<header class="cab"><h1>${DIAS[d.getDay()]} ${d.getDate()}</h1><span class="k">${chipBloque(E)}</span></header>`;
+  h += tiraDias(dISO);
+  h += heroeRecuperacion(d);
+  h += avisosPadel(d);
+  h += avisoUnico(d, E, clave);
+  h += tarjetaSesion(S, ent, hechos, ejercicios.length);
+  h += tarjetasDia(dISO);
+  h += tarjetaPeso(dISO);
+  return h;
+}
+
+// Comida, sueño y pulso del día como tarjetas de color.
+function tarjetasDia(dISO) {
+  const E = estado(dISO);
   const { prot, kcal } = totales(dISO);
   const metaP = P.nutricion.proteinaMeta;
   const metaK = E.b.macros?.kcal;
-
-  let h = `<header class="ini-top"><span class="k fuerte">Hoy · ${esc(fechaMedia(d))}</span><span class="k">${chipBloque(E)}</span></header>`;
-  const rec = recuperacion(dISO);
-  h += `<div class="diales${rec ? ' cuatro' : ''}">
-    ${rec ? dial(rec.p / 100, COLOR_R[zonaR(rec.p)], `${rec.p}%`, 'Recuper.', '') : ''}
-    ${dial(ejercicios.length ? hechos / ejercicios.length : 0, colorDe(clave), `${hechos}/${ejercicios.length}`, 'Sesión', ent?.inicio && !ent.fin ? 'data-accion="continuar"' : '')}
-    ${dial(prot / metaP, 'var(--prot)', `${prot}g`, 'Proteína', 'data-tab="nutri"')}
-    ${dial(metaK ? kcal / metaK : 0, 'var(--kcal)', kcal >= 1000 ? `${fmt(kcal / 1000)}k` : `${kcal}`, 'Kcal', 'data-tab="nutri"')}
-  </div>`;
-  h += tarjetaGarmin(d, clave, ent);
-  h += avisoUnico(d, E, clave);
-  h += `<p class="titulo-sec" style="--tc:${colorDe(clave)}">Hoy entrenás</p>`;
-  h += tarjetaSesion(S, ent, hechos, ejercicios.length);
-  h += '<p class="titulo-sec">Tu semana</p>';
-  h += tiraSemana(d);
-  h += '<p class="titulo-sec" style="--tc:var(--ok)">Peso</p>';
-  h += tarjetaPeso(dISO);
-  return h;
+  const s = DB.salud[dISO] || {};
+  const r = recuperacion(dISO);
+  const hm = (h) => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+  return `<button type="button" class="t tarjeta" style="background-color:var(--comida)" data-tab="nutri">
+      ${ICON_IR}<span class="t-k">Comida</span>
+      <span class="t-2">
+        <span class="t-col"><span><span class="t-n">${prot}</span><span class="t-u"> / ${metaP} g prot.</span></span><span class="minibar"><span style="width:${Math.min(100, (prot / metaP) * 100)}%"></span></span></span>
+        <span class="t-col"><span><span class="t-n">${fmt(kcal, 0)}</span><span class="t-u"> kcal</span></span><span class="minibar"><span style="width:${metaK ? Math.min(100, (kcal / metaK) * 100) : 0}%"></span></span></span>
+      </span>
+    </button>
+    <div class="t-par">
+      <button type="button" class="t tarjeta" style="background-color:var(--sueno)" data-tab="progreso">${ICON_IR}<span class="t-k">Sueño</span>
+        <span>${s.horas != null ? `<span class="t-n g">${hm(s.horas)}</span><span class="t-u"> h</span>` : '<span class="t-n g">—</span>'}</span></button>
+      <button type="button" class="t tarjeta" style="background-color:var(--pulso)" data-tab="progreso">${ICON_IR}<span class="t-k">Pulso</span>
+        <span>${s.fcr != null ? `<span class="t-n g">${s.fcr}</span><span class="t-u"> lpm${r?.dif != null ? ` · ${r.dif >= 0 ? '+' : ''}${fmt(r.dif, 0)} vs prom.` : ''}</span>` : '<span class="t-n g">—</span>'}</span></button>
+    </div>`;
 }
 
 // Un solo aviso a la vez: el más importante.
@@ -531,10 +570,10 @@ function avisoUnico(d, E, clave) {
   if (E.fase === 'antes') a = `El plan arranca el ${fechaCorta(P.bloques[0].desde)}.`;
   else if (E.descarga) a = `<b>Semana de descarga:</b> la mitad de las series${clave === 'viernes' ? ' y hoy zona 2 en vez de intervalos' : ''}.`;
   else if (E.fase === 'plan' && E.b.volumenBajo) a = esc(E.b.aviso);
-  else if (t && !testCompleto(t.id)) a = `<button type="button" class="link" data-tab="progreso">📏 Semana de tests: cargalos en Progreso →</button>`;
-  else if (avisoSeguidos(d)) a = `⚠︎ ${esc(avisoSeguidos(d))} Si llegás cargado, cambiá uno por zona 2.`;
+  else if (t && !testCompleto(t.id)) a = 'Semana de tests: <button type="button" class="link chico" data-tab="progreso">cargalos en Cuerpo</button>';
+  else if (avisoSeguidos(d)) a = `${esc(avisoSeguidos(d))} Si llegás cargado, cambiá uno por zona 2.`;
   else if (rango(7).map((i) => recuperacion(iso(addDays(d, -i)))).filter((r) => r && r.p < 40).length >= 3) a = 'Varios días con recuperación baja esta semana: considerá adelantar la descarga.';
-  return a ? `<div class="aviso">${a}</div>` : '';
+  return a ? filaAviso(a) : '';
 }
 
 function tarjetaSesion(S, ent, hechos, total) {
@@ -542,36 +581,38 @@ function tarjetaSesion(S, ent, hechos, total) {
   const d = parseISO(dISO);
   const entrena = s.tipo === 'fuerza' || s.tipo === 'cardio';
   const tieneCasa = s.items.some((it) => it.casa) || clave === 'viernes';
-  let h = `<section class="c sesion" style="--sc:${colorDe(clave)}">
-    <div class="fila-k"><span class="k tipo-k">${esc(tipoNombre(s))}${movido(d) ? ' · movida' : ''}</span>${ent?.inicio ? `<span class="k">${lugar === 'casa' ? '🏠 Casa' : '🏋️ Gimnasio'}</span>` : ''}</div>
-    <h2 class="big">${esc(s.titulo)}</h2>
-    <p class="mut">${esc([s.duracion, total > 1 ? `${total} ejercicios` : s.sub].filter(Boolean).join(' · '))}</p>`;
-
+  const r = recuperacion(dISO);
+  const sub = [s.sub, total > 1 ? `${total} ejercicios` : ''].filter(Boolean).join(' · ');
+  let h = `<section class="t sesion" style="--sc:${colorDe(clave)}">
+    <div class="ses-top"><span class="tipo-k">${entrena ? 'Hoy entrenás' : 'Hoy'} · ${esc(tipoNombre(s))}${movido(d) ? ' · movida' : ''}</span><span class="ses-dur">${ent?.inicio ? (lugar === 'casa' ? 'Casa' : 'Gimnasio') : esc(s.duracion || '')}</span></div>
+    <div class="ses-pie">
+      <h2>${esc(s.titulo)}</h2>
+      ${sub ? `<p class="ses-sub">${esc(sub)}</p>` : ''}`;
   if (!ent?.inicio) {
     if (tieneCasa) {
-      h += `<div class="segm">${[['gym', '🏋️ Gimnasio'], ['casa', '🏠 Casa']].map(([v, t]) => `<button type="button" class="${lugar === v ? 'on' : ''}" data-lugar="${v}">${t}</button>`).join('')}</div>`;
-      if (lugar === 'casa') h += `<p class="mut chico">Con: ${esc(P.casa.equipo)}</p>`;
+      h += `<div class="segm" role="group" aria-label="Dónde entrenás">${[['gym', 'Gimnasio'], ['casa', 'Casa']].map(([v, t]) => `<button type="button" class="${lugar === v ? 'on' : ''}" data-lugar="${v}">${t}</button>`).join('')}</div>`;
+      if (lugar === 'casa') h += `<p class="ses-sub chico">Con: ${esc(P.casa.equipo)}</p>`;
     }
     h += '<button type="button" class="primario" data-accion="empezar">Empezar</button>';
+    if (entrena) h += '<p class="ses-70">Primera ronda al 70 %</p>';
   } else if (!ent.fin) {
-    h += `<button type="button" class="primario azul" data-accion="continuar">Continuar · ${hechos}/${total}</button>`;
+    h += `<button type="button" class="primario" data-accion="continuar">Continuar · ${hechos}/${total}</button>`;
   } else {
     h += `<p class="hecha">✓ Hecha · ${Math.max(1, Math.round((ent.fin - ent.inicio) / 60000))} min</p>
-      <div class="dos"><button type="button" class="secund" data-accion="resumen">Ver resumen</button><button type="button" class="secund" data-accion="reabrir">Reabrir</button></div>`;
+      <div class="ses-acc"><button type="button" class="secund" data-accion="resumen">Ver resumen</button><button type="button" class="link" data-accion="reabrir">Reabrir</button></div>`;
   }
-  if (entrena && !ent?.fin) h += '<p class="seg">⚠︎ Primera ronda al 70 %</p>';
-
-  h += `<div class="links">
+  h += `</div></section>
+    <div class="links">
       <button type="button" class="link" data-accion="verlista">Ver ejercicios</button>
       ${ent?.inicio ? '' : '<button type="button" class="link" data-accion="cambiar">Cambiar sesión</button>'}
+      ${r && zonaR(r.p) === 'rojo' && !['z2', 'domingo'].includes(clave) && !ent?.inicio ? '<button type="button" class="link" data-sesion="z2">Cambiar hoy por zona 2</button>' : ''}
     </div>
-    <ul class="prev" id="prev" hidden>${S.items.map((x) => (x.seccion ? `<li class="k">${esc(x.seccion)}</li>` : `<li><span>${esc(x.nombre)}</span><span class="mut">${esc(dosis(x))}</span></li>`)).join('')}</ul>
-    <div class="opciones" id="opciones" hidden>
+    <ul class="c prev" id="prev" hidden>${S.items.map((x) => (x.seccion ? `<li class="k">${esc(x.seccion)}</li>` : `<li><span>${esc(x.nombre)}</span><span class="mut">${esc(dosis(x))}</span></li>`)).join('')}</ul>
+    <div class="c opciones" id="opciones" hidden>
       <p class="mut chico">¿Qué hiciste o vas a hacer hoy? La semana se reacomoda sola.</p>
-      <button type="button" class="link chico" data-tab="semana" style="grid-column:1/-1;text-align:left">¿Es otro día (ayer, mañana)? Cambialo en Semana →</button>
       ${Object.keys(P.sesiones).filter((k) => k !== clave).map((k) => `<button type="button" class="secund" data-sesion="${k}">${esc(titulo(k))}</button>`).join('')}
-    </div>
-  </section>`;
+      <button type="button" class="link chico" data-tab="semana" style="grid-column:1/-1">¿Es otro día? Cambialo en Semana</button>
+    </div>`;
   return h;
 }
 
@@ -589,18 +630,20 @@ function tiraSemana(d) {
 
 function tarjetaPeso(dISO) {
   const v = DB.peso[dISO] || '';
-  const fechas = Object.keys(DB.peso).filter((f) => f < dISO && num(DB.peso[f]) != null).sort();
+  const fechas = Object.keys(DB.peso).filter((f) => f <= dISO && num(DB.peso[f]) != null).sort();
+  const ultimo = fechas[fechas.length - 1];
+  const actual = num(DB.peso[ultimo]);
   const hace7 = iso(addDays(parseISO(dISO), -7));
-  const ref = fechas.filter((f) => f <= hace7).pop() || fechas[0];
-  const actual = num(v) ?? num(DB.peso[fechas[fechas.length - 1]]);
+  const ref = fechas.filter((f) => f <= hace7).pop();
   let delta = '';
-  if (ref && actual != null && num(DB.peso[ref]) != null) {
+  if (ref && actual != null) {
     const dl = actual - num(DB.peso[ref]);
-    delta = `<span class="delta ${dl <= 0 ? 'baja' : 'sube'}">${dl <= 0 ? '▼' : '▲'} ${fmt(Math.abs(dl))} <small>desde ${fechaCorta(ref)}</small></span>`;
+    delta = ` · ${dl <= 0 ? '▼' : '▲'} ${fmt(Math.abs(dl))} en 7 días`;
   }
-  return `<section class="c fila-peso">
-    <span class="k">Peso en ayunas</span>
-    <span class="peso-der">${delta}<label class="kg-box chico"><input id="peso-hoy" type="text" inputmode="decimal" autocomplete="off" value="${esc(v)}" placeholder="—" aria-label="Peso de hoy"><span>kg</span></label></span>
+  return `<section class="t tarjeta peso-t" style="background-color:var(--cuerpo)">
+    <span class="peso-izq"><span class="t-k">Peso en ayunas</span>
+      <span>${actual != null ? `<span class="t-n">${fmt(actual)}</span><span class="t-u"> kg${delta}</span>` : '<span class="t-u">Cargá tu peso de hoy</span>'}</span></span>
+    <label class="peso-in"><span>Hoy</span><input id="peso-hoy" type="text" inputmode="decimal" autocomplete="off" value="${esc(v)}" placeholder="—" aria-label="Peso de hoy en kilos"></label>
   </section>`;
 }
 
@@ -1589,6 +1632,14 @@ document.addEventListener('click', (ev) => {
     render('inicio');
     toast(msg ? `Semana reacomodada: ${msg}` : 'Listo, cambiado');
     return;
+  }
+  if (el.hasAttribute('data-semana')) {
+    semanaVista = el.dataset.semana === '0' ? 0 : semanaVista + (+el.dataset.semana);
+    return render(tab, true);
+  }
+  if (el.dataset.verDia) {
+    if (el.dataset.verDia === iso(hoy())) { semanaVista = 0; return render('inicio', true); }
+    return toast('Ver días anteriores llega en la próxima etapa');
   }
   if (el.dataset.ignorarPadel) { DB.garmin.ignorados.push(el.dataset.ignorarPadel); save(); return render('inicio', true); }
   if (el.dataset.poner) {

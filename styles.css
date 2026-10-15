@@ -621,3 +621,75 @@ h3 { font-size: 17px; font-weight: 500; }
 .dia-fila { grid-template-columns: 30px 1fr auto 16px; }
 .dia-fila::after { grid-column: 4; grid-row: 1 / span 2; }
 .fila .mut { margin-left: auto; }
+
+/* =====================================================================
+   REDISEÑO · etapa 2: Hoy
+   ===================================================================== */
+.cab { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0 18px; }
+.cab h1 { margin: 0; }
+.tira-dias { display: flex; justify-content: space-between; }
+.td { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 44px; }
+.tdc { width: 38px; height: 38px; border-radius: 50%; border: 1px solid #3A3A3F; background: none; color: var(--txt); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; padding: 0; position: relative; }
+.tdc::after { content: ''; position: absolute; inset: -4px; } /* zona táctil de 46 px */
+.tdc.sel { background: var(--txt); color: var(--bg); border-color: var(--txt); }
+.tdc.hoy { border: 2px solid var(--ahora); }
+.tdc.fut { color: var(--dim); }
+.tdc.atras { background: var(--sup2); border-color: var(--sup2); }
+.tdp { width: 5px; height: 5px; border-radius: 50%; }
+.tdp.on { background: var(--entreno); }
+.volver-hoy { float: right; }
+
+.heroe { display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 26px; background: none; border: 0; color: var(--txt); padding: 0; }
+.heroe-k { font-size: 17px; font-weight: 500; }
+.heroe-n { display: flex; align-items: flex-end; gap: 6px; margin-top: 16px; }
+.heroe-n .dot { font-size: 104px; }
+.heroe-u { font-size: 20px; color: var(--mut); padding-bottom: 4px; }
+.ruler { position: relative; display: block; width: 300px; max-width: 86%; height: 30px; margin-top: 28px;
+  background: repeating-linear-gradient(90deg, rgba(244,243,239,.32) 0 1.5px, transparent 1.5px 9px);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); }
+.mk { position: absolute; top: -8px; width: 3px; height: 40px; background: var(--ahora); border-radius: 2px; }
+.tri { position: absolute; top: -16px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid var(--ahora); }
+.heroe-t { margin-top: 14px; font-size: 15px; text-align: center; line-height: 1.4; }
+
+.garmin-sync { display: block; margin-top: 24px; padding: 16px; }
+.g-cab b { display: block; font-size: 17px; font-weight: 500; }
+.g-cab small { display: block; margin-top: 2px; font-size: 13px; }
+.garmin-sync .dos { margin-top: 12px; }
+.garmin-sync .secund { width: 100%; }
+
+.aviso { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; font-size: 14px; line-height: 1.35; }
+.ic-aviso { flex-shrink: 0; margin-top: 1px; }
+.aviso-txt { flex: 1; }
+.aviso-txt b { font-weight: 600; }
+.aviso .link.chico { min-height: 32px; }
+.aviso-acc { display: flex; gap: 18px; }
+
+.sesion { display: flex; flex-direction: column; justify-content: space-between; min-height: 300px; margin-top: 14px; }
+.ses-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ses-dur { font-size: 13px; opacity: .8; }
+.sesion h2 { margin: 0; }
+.ses-sub { margin: 4px 0 14px; font-size: 15px; color: #C9C9CE; }
+.ses-sub.chico { margin: 6px 4px 0; font-size: 13px; }
+.sesion .primario { margin-top: 10px; }
+.ses-70 { margin: 10px 4px 0; font-size: 13px; color: var(--aviso); }
+.ses-acc { display: flex; align-items: center; gap: 18px; margin-top: 10px; }
+.sesion .hecha { margin-top: 6px; font-size: 17px; font-weight: 500; color: var(--txt); }
+.sesion + .links { padding: 4px 4px 0; display: flex; flex-wrap: wrap; gap: 0 22px; margin-top: 0; }
+.prev, .opciones { margin-top: 6px; }
+
+.tarjeta { display: flex; flex-direction: column; justify-content: space-between; width: 100%; border: 0; text-align: left; margin-top: 10px; min-height: 150px; }
+.t-k { font-size: 15px; font-weight: 500; }
+.t-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.t-col { display: flex; flex-direction: column; gap: 8px; }
+.t-n { font-size: 34px; letter-spacing: -.02em; font-weight: 400; }
+.t-n.g { font-size: 38px; }
+.t-u { font-size: 15px; color: #D9D9DD; }
+.minibar { display: block; height: 5px; border-radius: 5px; background: rgba(244,243,239,.18); overflow: hidden; }
+.minibar span { display: block; height: 100%; border-radius: 5px; background: var(--txt); }
+.t-par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.t-par .tarjeta { margin-top: 10px; }
+.peso-t { flex-direction: row; align-items: center; min-height: 118px; }
+.peso-izq { display: flex; flex-direction: column; gap: 10px; }
+.peso-in { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-size: 13px; color: #D9D9DD; }
+.peso-in input { width: 74px; height: 44px; border-radius: 14px; background: rgba(0,0,0,.45); border: 1px solid rgba(244,243,239,.3); color: var(--txt); text-align: right; padding: 0 10px; font-family: var(--num); font-size: 20px; }
+.peso-in input:focus { outline: 0; border-color: var(--txt); }

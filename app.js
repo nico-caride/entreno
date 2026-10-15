@@ -14,7 +14,10 @@ const rango = (n) => Array.from({ length: n }, (_, i) => i);
 
 // ---------- datos (localStorage) ----------
 const blank = () => ({ logs: {}, prot: {}, crea: {}, tests: {}, agenda: {}, fijos: {}, check: {}, peso: {}, entrenos: {}, comida: {}, misAli: [], aliEdit: {}, salud: {}, garmin: { padel: [], ignorados: [] } });
+// ?demo=1 carga datos de ejemplo en memoria y no guarda nada (para probar sin tocar datos reales).
+const DEMO = new URLSearchParams(location.search).has('demo');
 function load() {
+  if (DEMO) return blank();
   try {
     const d = JSON.parse(localStorage.getItem(KEY));
     if (d && typeof d === 'object') return Object.assign(blank(), d);
@@ -22,11 +25,12 @@ function load() {
   return blank();
 }
 let DB = load();
-const VERSION = 10; // subirla junto con el ?v= de index.html
+const VERSION = 11; // subirla junto con el ?v= de index.html
 // Candado: si de golpe hay muchos menos registros que los guardados, no pisa los datos.
 const cantidad = (d) => ['logs', 'comida', 'salud', 'peso', 'entrenos'].reduce((a, k) => a + Object.keys(d?.[k] || {}).length, 0);
 let cantGuardada = cantidad(DB);
 function save() {
+  if (DEMO) return;
   const n = cantidad(DB);
   if (cantGuardada >= 10 && n < cantGuardada * 0.5) { toast('No guardé: parecía que se borraban muchos datos.'); return; }
   try {
@@ -37,6 +41,7 @@ function save() {
 }
 // Copia local completa cada vez que se abre una versión nueva de la app (antes de tocar nada).
 (function respaldoLocal() {
+  if (DEMO) return;
   try {
     const actual = localStorage.getItem(KEY);
     if (!actual || localStorage.getItem(`${KEY}.respaldo.version`) === String(VERSION)) return;
@@ -484,7 +489,8 @@ function tarjetaGarmin(d, clave, ent) {
 }
 
 // ---------- pantalla: INICIO ----------
-const colorDe = (k) => P.sesiones[k].color || 'var(--acc)';
+const COLOR_TIPO = { fuerza: 'var(--entreno)', cardio: '#8FB0FF', descanso: '#5A5A60' };
+const colorDe = (k) => COLOR_TIPO[P.sesiones[k].tipo] || 'var(--entreno)';
 const tipoNombre = (s) => ({ fuerza: 'Fuerza', cardio: 'Cardio', descanso: 'Descanso' }[s.tipo] || '');
 function vistaInicio() {
   const d = hoy();
@@ -888,7 +894,7 @@ function vistaNutri() {
     items.forEach(({ e }) => { const v = valE(e); p += v.p; k += v.k; });
     const tipo = mo.tipo != null ? P.comidasTipo[mo.tipo] : null;
     const abierto = pickerMom === mo.id;
-    h += `<section class="c momento" style="--mc:${mo.color}">
+    h += `<section class="c momento">
       <div class="mom-top"><span class="mom-n">${esc(mo.nombre)}</span><span class="mut">${items.length || rapidas.length ? `${Math.round(p)} g · ${Math.round(k)} kcal` : 'vacío'}</span></div>
       ${items.map(({ e, i }) => {
         const a = ALI[e.id];
@@ -982,7 +988,7 @@ function vistaProgreso() {
   const t = DB.tests[testSel] || {};
   const tInfo = P.tests.fechas.find((x) => x.id === testSel);
 
-  let h = '<header class="top"><h1 class="big">Progreso</h1></header>';
+  let h = '<header class="top"><h1 class="big">Cuerpo</h1></header>';
 
   h += seccionPeso(dISO);
   h += seccionSalud(dISO);
@@ -1337,6 +1343,7 @@ function ghFetch(metodo, cuerpo, token = nubeCfg().token) {
 }
 let subiendo = false;
 async function subirNube(manual) {
+  if (DEMO) { if (manual) toast('Modo demo: no se sube nada'); return; }
   const cfg = nubeCfg();
   if (!cfg.token || subiendo) return;
   if (!navigator.onLine) { if (manual) toast('Sin conexión'); return; }
@@ -1363,6 +1370,7 @@ async function subirNube(manual) {
 }
 // Sube sola si hubo cambios y pasaron 10 minutos desde la última copia.
 function autoNube() {
+  if (DEMO) return;
   const cfg = nubeCfg();
   if (!cfg.token) return;
   const cambio = +localStorage.getItem(`${KEY}.cambio`) || 0;
@@ -1789,6 +1797,48 @@ document.addEventListener('visibilitychange', () => {
 });
 setTimeout(autoNube, 3000);
 setInterval(autoNube, 10 * 6e4);
+
+// ---------- datos de ejemplo (?demo=1) ----------
+function datosDemo() {
+  const h0 = hoy();
+  const desde = parseISO(P.lunesSemana1);
+  let peso = 72.6;
+  for (let d = new Date(desde); iso(d) < iso(h0); d = addDays(d, 1)) {
+    const f = iso(d);
+    const i = Math.round((d - desde) / 864e5);
+    const S = armarSesion(d, 'gym');
+    if (S.s.tipo !== 'descanso' && i % 9 !== 4) {
+      const t0 = new Date(d); t0.setHours(19, 0, 0, 0);
+      DB.entrenos[f] = { lugar: 'gym', inicio: +t0, fin: +t0 + (55 + (i % 4) * 5) * 6e4 };
+      const log = (DB.logs[f] = {});
+      ejerciciosDe(S).forEach((x, j) => {
+        const n = x.series || 1;
+        const e = { w: '', d: rango(n).map(() => true), n };
+        if (!x.sinPeso && usaReps(x)) {
+          const w = 10 + ((j * 7 + x.id.length * 3) % 40) + Math.floor(i / 7) * 2.5;
+          e.k = rango(n).map(() => fmt(w));
+          e.r = rango(n).map((k) => topeReps(x) - (k === n - 1 && i % 2 ? 1 : 0));
+          e.t = topeReps(x);
+          e.w = fmt(w);
+        }
+        log[x.logId] = e;
+      });
+    }
+    DB.comida[f] = [{ id: 'huevo', c: 3, m: 'desayuno' }, { id: 'avena', c: 1, m: 'desayuno' }, { id: 'pollo', c: 2, m: 'almuerzo' }, { id: 'arroz', c: 1, m: 'almuerzo' }, { id: 'yogur', c: 1, m: 'pre' }, { id: 'carne', c: 2, m: 'cena' }, { id: 'papa', c: 1, m: 'cena' }];
+    if (i % 2) DB.crea[f] = true;
+    peso -= 0.04 + ((i * 13) % 7 - 3) * 0.03;
+    if (i % 2 === 0) DB.peso[f] = fmt(peso);
+    const dormir = new Date(d); dormir.setHours(23 + (i % 3), (i * 17) % 60, 0, 0);
+    const horas = 6.5 + ((i * 7) % 5) * 0.35;
+    DB.salud[iso(addDays(d, 1))] = { fcr: 55 + ((i * 3) % 5), horas, inicio: dormir.toISOString(), fin: new Date(+dormir + (horas + 0.4) * 36e5).toISOString(), profundo: 55 + (i % 4) * 10, rem: 80 + (i % 3) * 15, despierto: 20 + (i % 5) * 5, despertares: i % 3 };
+  }
+  const f0 = iso(h0);
+  DB.comida[f0] = [{ id: 'huevo', c: 3, m: 'desayuno' }, { id: 'avena', c: 1, m: 'desayuno' }, { id: 'pollo', c: 2, m: 'almuerzo' }];
+  DB.tests.t1 = { peso1: '72,6', peso2: '72,4', peso3: '72,5', cintura: '86', dominadas: '4', skierg: '1080', popups: '14', foto: true };
+  DB.misAli = [{ id: 'u-demo', nombre: 'Prota (barrita)', porcion: '1 unidad', cat: 'Mis alimentos', prot: 23, kcal: 197 }];
+  armarALI();
+}
+if (DEMO) datosDemo();
 
 // Al abrir: si quedó un entrenamiento a medias hoy, vuelve directo a él.
 const entHoy = DB.entrenos[iso(hoy())];

@@ -25,7 +25,7 @@ function load() {
   return blank();
 }
 let DB = load();
-const VERSION = 15; // subirla junto con el ?v= de index.html
+const VERSION = 16; // subirla junto con el ?v= de index.html
 // Candado: si de golpe hay muchos menos registros que los guardados, no pisa los datos.
 const cantidad = (d) => ['logs', 'comida', 'salud', 'peso', 'entrenos'].reduce((a, k) => a + Object.keys(d?.[k] || {}).length, 0);
 let cantGuardada = cantidad(DB);
@@ -169,6 +169,14 @@ function aplicar(prop) {
   prop.dias.forEach((f, i) => { DB.agenda[f] = prop.despues[i]; });
   if (prop.origen) delete DB.fijos[prop.origen];
   DB.fijos[prop.destino] = true;
+  // Si registrás un día que ya pasó con algo que no es fuerza (pádel, zona 2, intervalos), queda hecho.
+  // La fuerza no: ahí conviene cargar pesos y reps de verdad.
+  const f = prop.destino;
+  const k = prop.despues[prop.dias.indexOf(f)];
+  if (f < iso(hoy()) && P.sesiones[k].tipo !== 'fuerza' && !hechoEl(parseISO(f))) {
+    const log = (DB.logs[f] ||= {});
+    ejerciciosDe(armarSesion(parseISO(f), 'gym')).forEach((x) => { log[x.logId] = { w: '', d: rango(x.series || 1).map(() => true), n: x.series || 1 }; });
+  }
   save();
 }
 const DIA3 = (fISO) => DIAS[parseISO(fISO).getDay()].slice(0, 3).toLowerCase();
@@ -405,9 +413,18 @@ function leerSync(texto) {
   if (!/ENTRENO/i.test(texto || '')) return null;
   const kv = {};
   const muestras = [];
+  const entrenos = [];
   texto.split(/[\n&]+/).forEach((l) => {
     const sm = l.match(/^\s*s\s*[=:]\s*(.+)$/i);
     if (sm) { const [v, a, b] = sm[1].split(/\s*[;|]\s*/); muestras.push({ fase: faseDe(v), ini: aFecha(a), fin: aFecha(b) }); return; }
+    const wm = l.match(/^\s*w\s*[=:]\s*(.+)$/i);
+    if (wm) {
+      const [tipo, a, b] = wm[1].split(/\s*[;|]\s*/);
+      const ini = aFecha(a);
+      const fin = aFecha(b);
+      if (ini && fin && fin > ini) entrenos.push({ tipo: String(tipo || '').trim(), f: iso(ini), min: Math.round((fin - ini) / 6e4) });
+      return;
+    }
     const m = l.match(/^\s*([a-záéíóú]+)\s*[=:]\s*(.+?)\s*$/i);
     if (m) kv[m[1].toLowerCase()] = m[2];
   });
@@ -416,8 +433,10 @@ function leerSync(texto) {
   if (noche && !(noche.horas > 1 && noche.horas < 15)) noche = null;
   const fcr = num(kv.fcr);
   const padel = String(kv.padel || '').split(/[;,\s]+/).map((x) => (x.match(/\d{4}-\d{2}-\d{2}/) || [])[0]).filter(Boolean);
-  if (fcr == null && !noche && !padel.length) return null;
-  return { fcr: fcr != null ? Math.round(fcr) : null, noche, padel, dia: noche ? noche.dia : iso(hoy()) };
+  // Garmin guarda el pádel en Salud como "Cardio mixto": 40 min o más se toma como posible pádel.
+  entrenos.filter((w) => w.min >= 40 && /cardio mixto|mixed|p[aá]del|tenis|tennis|racquet|raqueta|squash/i.test(w.tipo)).forEach((w) => padel.push(w.f));
+  if (fcr == null && !noche && !padel.length && !entrenos.length) return null;
+  return { fcr: fcr != null ? Math.round(fcr) : null, noche, padel, entrenos, dia: noche ? noche.dia : iso(hoy()) };
 }
 function guardarSync(texto) {
   const r = leerSync(texto);
@@ -426,6 +445,7 @@ function guardarSync(texto) {
   const { dia: _d, ...noche } = r.noche || {};
   DB.salud[dia] = { ...(DB.salud[dia] || {}), ...(r.fcr != null ? { fcr: r.fcr } : {}), ...(r.noche ? noche : {}) };
   r.padel.forEach((f) => { if (!DB.garmin.padel.includes(f)) DB.garmin.padel.push(f); });
+  (r.entrenos || []).forEach((w) => { (DB.garmin.detalle ||= {})[w.f] = `${w.tipo} · ${fmtMin(w.min)}`; });
   save();
   render('inicio', true);
   const partes = [r.noche && `sueño ${fmtHoras(r.noche.horas)}`, r.fcr != null && `pulso ${r.fcr}`].filter(Boolean);
@@ -490,8 +510,11 @@ function heroeRecuperacion(d) {
   </button>`;
 }
 function avisosPadel(d) {
-  return padelPendiente(d).map((f) => filaAviso(`Garmin registró pádel el ${esc(diaNombre(parseISO(f)))} ${fechaCorta(f)}.`,
-    `<div class="aviso-acc"><button type="button" class="link chico" data-ignorar-padel="${f}">Ignorar</button><button type="button" class="link chico" data-poner="${f}|sabado">Marcar en la semana</button></div>`)).join('');
+  return padelPendiente(d).map((f) => {
+    const det = DB.garmin.detalle?.[f];
+    const txt = det ? `Garmin registró ${esc(det.split(' · ')[1] || '')} de ${esc(det.split(' · ')[0].toLowerCase())} el ${esc(diaNombre(parseISO(f)))} ${fechaCorta(f)}. ¿Fue pádel?` : `Garmin registró pádel el ${esc(diaNombre(parseISO(f)))} ${fechaCorta(f)}.`;
+    return filaAviso(txt, `<div class="aviso-acc"><button type="button" class="link chico" data-ignorar-padel="${f}">No</button><button type="button" class="link chico" data-poner="${f}|sabado">Sí, marcar pádel</button></div>`);
+  }).join('');
 }
 
 // Tira de días: semana actual (o anteriores con la flecha). Días futuros no se tocan.
@@ -591,7 +614,10 @@ function vistaDiaPasado(fISO) {
     <h2>${esc(S.s.titulo)}</h2>`;
   if (entreno) {
     const min = ent?.inicio && ent?.fin ? Math.max(1, Math.round((ent.fin - ent.inicio) / 6e4)) : null;
-    h += `<div class="cuentas">${min ? `<span><b>${min}</b><small> min</small></span>` : ''}<span><b>${series}</b><small> series</small></span>${volumen ? `<span><b>${fmt(volumen, 0)}</b><small> kg totales</small></span>` : ''}</div><div class="filas">`;
+    const gar = DB.garmin.detalle?.[fISO];
+    h += S.s.tipo === 'fuerza' || !gar
+      ? `<div class="cuentas">${min ? `<span><b>${min}</b><small> min</small></span>` : ''}<span><b>${series}</b><small> series</small></span>${volumen ? `<span><b>${fmt(volumen, 0)}</b><small> kg totales</small></span>` : ''}</div><div class="filas">`
+      : `<div class="cuentas"><span><b>${esc(gar.split(' · ')[1] || '')}</b><small> en Garmin (${esc(gar.split(' · ')[0].toLowerCase())})</small></span></div><div class="filas">`;
     const sinPeso = [];
     for (const x of ejercicios) {
       const e = DB.logs[fISO]?.[x.logId];

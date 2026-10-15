@@ -693,3 +693,69 @@ h3 { font-size: 17px; font-weight: 500; }
 .peso-in { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-size: 13px; color: #D9D9DD; }
 .peso-in input { width: 74px; height: 44px; border-radius: 14px; background: rgba(0,0,0,.45); border: 1px solid rgba(244,243,239,.3); color: var(--txt); text-align: right; padding: 0 10px; font-family: var(--num); font-size: 20px; }
 .peso-in input:focus { outline: 0; border-color: var(--txt); }
+
+/* =====================================================================
+   REDISEÑO · etapa 3: días anteriores y Comida
+   ===================================================================== */
+.cab .k { display: block; margin-top: 2px; }
+.cab { align-items: center; }
+.hoy-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 14px; }
+.tdp.on.comida { background: var(--comida); }
+.minis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 22px; }
+.mini { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 20px; background: var(--sup); border: 0; color: var(--txt); text-align: left; }
+.mini .k { display: flex; align-items: center; gap: 6px; }
+.pto { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.mini-n { font-size: 26px; letter-spacing: -.02em; }
+.mini-n small { font-size: 14px; color: var(--mut); }
+.t.alta::before { background: radial-gradient(ellipse 92% 90% at 50% 52%, #09090B 0%, rgba(9,9,11,.95) 55%, rgba(9,9,11,.4) 85%, rgba(9,9,11,0) 100%); }
+.tarjeta-dia { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.tarjeta-dia h2 { margin: 0; font-size: 30px; font-weight: 500; letter-spacing: -.02em; }
+.estado-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(244,243,239,.14); }
+.cuentas { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.cuentas b { font-size: 26px; font-weight: 400; letter-spacing: -.02em; }
+.cuentas small { font-size: 13px; color: #C9C9CE; }
+.fr { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 52px; border: 0; border-top: 1px solid rgba(244,243,239,.12); background: none; color: var(--txt); font-size: 15px; padding: 0; text-align: left; }
+.fr .v { color: #C9C9CE; font-size: 14px; text-align: right; white-space: nowrap; }
+.fr-d { display: flex; align-items: center; gap: 8px; }
+.chev { flex-shrink: 0; color: #8A8A90; }
+.fr.sin { color: #C9C9CE; }
+.tarjeta-dia .secund { align-self: flex-start; }
+.k.claro { color: #D9D9DD; }
+.peso-t.chica { min-height: 92px; justify-content: space-between; }
+.tarjeta-dia + .links { padding: 4px 4px 0; display: flex; gap: 22px; }
+
+/* Comida */
+.heroe-com { display: flex; flex-direction: column; align-items: center; margin-top: 20px; padding-top: 22px; }
+.heroe-com .heroe-n .dot { font-size: 88px; }
+.heroe-com .heroe-u { font-size: 18px; color: #C9C9CE; padding-bottom: 2px; }
+.heroe-com .ruler { width: 290px; margin-top: 26px; }
+.meta-l { position: absolute; top: -4px; left: 80%; width: 2px; height: 38px; background: rgba(244,243,239,.85); }
+.com-txt { margin-top: 12px; font-size: 14px; color: #D9D9DD; }
+.sep { width: 100%; height: 1px; background: rgba(244,243,239,.14); margin: 16px 0 12px; }
+.com-pie { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.t-n.chico { font-size: 26px; }
+.secund.chico { min-height: 40px; padding: 0 14px; font-size: 14px; }
+.momentos { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.mom { border-radius: 22px; background: var(--sup); padding: 16px; }
+.mh { display: flex; justify-content: space-between; align-items: baseline; }
+.mh h3 { margin: 0; font-size: 18px; font-weight: 500; }
+.mom-items { margin-top: 8px; }
+.it { display: grid; grid-template-columns: minmax(0, 1fr) auto 36px; gap: 10px; align-items: center; min-height: 52px; border-top: 1px solid var(--linea); }
+.it b { display: block; font-weight: 500; font-size: 15px; }
+.it small { font-size: 13px; color: #8A8A90; }
+.it .v { font-size: 14px; color: #C9C9CE; white-space: nowrap; }
+.it .item-n { min-height: 44px; }
+.x { width: 36px; height: 36px; border-radius: 50%; border: 0; background: #222226; color: var(--mut); display: flex; align-items: center; justify-content: center; padding: 0; }
+.mom-acc { display: flex; gap: 8px; margin-top: 8px; }
+.vacio { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 64px; padding: 0 10px 0 16px; border-radius: 22px; background: var(--sup); }
+.vacio-n { font-size: 17px; font-weight: 500; }
+.vacio-b { display: flex; gap: 6px; }
+.guia-t { margin: 22px 4px 8px; }
+.guia { border-radius: 22px; background: var(--sup); padding: 0 16px; }
+.guia-f { border-top: 1px solid var(--linea); }
+.guia-f:first-child { border-top: 0; }
+.guia-f summary { display: flex; align-items: center; justify-content: space-between; min-height: 52px; list-style: none; cursor: pointer; font-size: 15px; }
+.guia-f summary::-webkit-details-marker { display: none; }
+.guia-f[open] .chev { transform: rotate(90deg); }
+.guia-c { padding: 0 0 14px; }
+.aviso-t { font-size: 13px; color: var(--aviso); }

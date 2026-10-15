@@ -25,7 +25,7 @@ function load() {
   return blank();
 }
 let DB = load();
-const VERSION = 12; // subirla junto con el ?v= de index.html
+const VERSION = 13; // subirla junto con el ?v= de index.html
 // Candado: si de golpe hay muchos menos registros que los guardados, no pisa los datos.
 const cantidad = (d) => ['logs', 'comida', 'salud', 'peso', 'entrenos'].reduce((a, k) => a + Object.keys(d?.[k] || {}).length, 0);
 let cantGuardada = cantidad(DB);
@@ -496,7 +496,10 @@ function avisosPadel(d) {
 
 // Tira de días: semana actual (o anteriores con la flecha). Días futuros no se tocan.
 let semanaVista = 0; // 0 = esta semana, -1 = la anterior…
-function tiraDias(diaVisto) {
+let diaVer = null; // día pasado que se mira en Hoy
+let comidaDia = null; // día con el que trabaja Comida (null = hoy)
+const tieneComida = (f) => (DB.comida[iso(f)] || []).length > 0 || (DB.prot[iso(f)] || []).length > 0;
+function tiraDias(diaVisto, modo = 'hoy') {
   const h = hoy();
   const hISO = iso(h);
   const lunes = addDays(lunesDe(h), semanaVista * 7);
@@ -508,10 +511,12 @@ function tiraDias(diaVisto) {
       const futuro = fISO > hISO;
       const cls = ['tdc', fISO === diaVisto ? 'sel' : '', fISO === hISO ? 'hoy' : '', futuro ? 'fut' : ''].filter(Boolean).join(' ');
       const letra = DIAS[f.getDay()][0];
-      const punto = hechoEl(f) ? '<span class="tdp on"></span>' : '<span class="tdp"></span>';
-      return `<span class="td">${futuro ? `<span class="${cls}">${letra}</span>` : `<button type="button" class="${cls}" data-ver-dia="${fISO}" aria-label="${DIAS[f.getDay()]} ${f.getDate()}">${letra}</button>`}${punto}</span>`;
+      const marca = modo === 'comida' ? tieneComida(f) : hechoEl(f);
+      const punto = `<span class="tdp${marca ? ` on ${modo}` : ''}"></span>`;
+      const attr = modo === 'comida' ? 'data-comida-dia' : 'data-ver-dia';
+      return `<span class="td">${futuro ? `<span class="${cls}">${letra}</span>` : `<button type="button" class="${cls}" ${attr}="${fISO}" aria-label="${DIAS[f.getDay()]} ${f.getDate()}">${letra}</button>`}${punto}</span>`;
     }).join('')}
-  </nav>${semanaVista < 0 ? '<button type="button" class="link chico volver-hoy" data-semana="0">Hoy ›</button>' : ''}`;
+  </nav>`;
 }
 
 // ---------- pantalla: INICIO ----------
@@ -527,6 +532,7 @@ function vistaInicio() {
   const ejercicios = ejerciciosDe(S);
   const hechos = ejercicios.filter((x) => completo(x, dISO)).length;
 
+  if (diaVer && diaVer < dISO) return vistaDiaPasado(diaVer);
   let h = `<header class="cab"><h1>${DIAS[d.getDay()]} ${d.getDate()}</h1><span class="k">${chipBloque(E)}</span></header>`;
   h += tiraDias(dISO);
   h += heroeRecuperacion(d);
@@ -535,6 +541,94 @@ function vistaInicio() {
   h += tarjetaSesion(S, ent, hechos, ejercicios.length);
   h += tarjetasDia(dISO);
   h += tarjetaPeso(dISO);
+  return h;
+}
+
+const CHEV = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+const BTN_HOY = (attr) => `<button type="button" class="secund hoy-btn" ${attr}>Hoy<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>`;
+function cuandoFue(fISO) {
+  const dias = Math.round((parseISO(iso(hoy())) - parseISO(fISO)) / 864e5);
+  return dias === 1 ? 'Ayer' : dias < 7 ? `Hace ${dias} días` : fechaCorta(fISO);
+}
+// Cuentas de una sesión registrada (las mismas del resumen).
+function cuentaSesion(fISO) {
+  const S = armarSesion(parseISO(fISO));
+  const ejercicios = ejerciciosDe(S);
+  let series = 0;
+  let volumen = 0;
+  for (const x of ejercicios) {
+    const e = DB.logs[fISO]?.[x.logId];
+    rango(x.series || 1).forEach((i) => {
+      if (!e?.d?.[i]) return;
+      series++;
+      if (!x.sinPeso) volumen += (num(kAt(e, i)) || 0) * (e.r?.[i] || 0);
+    });
+  }
+  return { S, ejercicios, series, volumen };
+}
+
+function vistaDiaPasado(fISO) {
+  const d = parseISO(fISO);
+  const E = estado(fISO);
+  const ent = DB.entrenos[fISO];
+  const { S, ejercicios, series, volumen } = cuentaSesion(fISO);
+  const s = DB.salud[fISO] || {};
+  const r = recuperacion(fISO);
+  const hm = (h) => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+  const entreno = hechoEl(d);
+
+  let h = `<header class="cab"><div><h1>${DIAS[d.getDay()]} ${d.getDate()}</h1><span class="k">${cuandoFue(fISO)} · ${chipBloque(E)}</span></div>${BTN_HOY(`data-ver-dia="${iso(hoy())}"`)}</header>`;
+  h += tiraDias(fISO);
+  h += `<div class="minis">
+    <button type="button" class="mini" data-tab="progreso"><span class="k">Recuperación</span><span class="mini-n">${r ? `${r.p} <small>%</small>` : '—'}</span></button>
+    <button type="button" class="mini" data-tab="progreso"><span class="k"><i class="pto" style="background:var(--sueno)"></i>Sueño</span><span class="mini-n">${s.horas != null ? `${hm(s.horas)} <small>h</small>` : '—'}</span></button>
+    <button type="button" class="mini" data-tab="progreso"><span class="k"><i class="pto" style="background:var(--pulso)"></i>Pulso</span><span class="mini-n">${s.fcr != null ? `${s.fcr} <small>lpm</small>` : '—'}</span></button>
+  </div>`;
+
+  // entrenamiento
+  h += `<section class="t alta tarjeta-dia" style="background-color:${entreno ? colorDe(S.clave) : 'var(--sup2)'}">
+    <div class="ses-top"><span class="t-k">Entrenamiento · ${esc(tipoNombre(S.s))}</span><span class="estado-chip">${entreno ? '✓ Hecho' : 'Sin registro'}</span></div>
+    <h2>${esc(S.s.titulo)}</h2>`;
+  if (entreno) {
+    const min = ent?.inicio && ent?.fin ? Math.max(1, Math.round((ent.fin - ent.inicio) / 6e4)) : null;
+    h += `<div class="cuentas">${min ? `<span><b>${min}</b><small> min</small></span>` : ''}<span><b>${series}</b><small> series</small></span>${volumen ? `<span><b>${fmt(volumen, 0)}</b><small> kg totales</small></span>` : ''}</div><div class="filas">`;
+    const sinPeso = [];
+    for (const x of ejercicios) {
+      const e = DB.logs[fISO]?.[x.logId];
+      if (!e?.d?.some(Boolean)) continue;
+      if (x.sinPeso || pesoMax(e) == null) { sinPeso.push(x.nombre); continue; }
+      const reps = (e.r || []).slice(0, x.series || 1).map((v) => v || '–').join('-');
+      h += `<button type="button" class="fr" data-ej="${esc(x.logId)}"><span>${esc(x.nombre)}</span><span class="fr-d"><span class="v">${x.series} × ${fmt(pesoMax(e))} kg${reps ? ` · ${reps}` : ''}</span>${CHEV}</span></button>`;
+    }
+    if (sinPeso.length) h += `<div class="fr sin"><span>${esc(sinPeso.length > 3 ? `${sinPeso.slice(0, 3).join(', ')} y ${sinPeso.length - 3} más` : sinPeso.join(', '))}</span><span class="v">✓ hechos</span></div>`;
+    h += '</div>';
+  } else {
+    h += '<p class="ses-sub">No hay series registradas ese día.</p>';
+  }
+  h += '</section>';
+  const enSemana = fISO >= iso(lunesDe(hoy()));
+  h += `<div class="links">${ent?.inicio ? `<button type="button" class="link" data-resumen="${fISO}">Ver resumen</button>` : ''}${enSemana ? `<button type="button" class="link" data-cambiar-dia="${d.getDay()}">Cambiar lo que hiciste</button>` : ''}</div>`;
+
+  // comida
+  const { prot, kcal } = totales(fISO);
+  const lista = DB.comida[fISO] || [];
+  const momIds = P.momentos.map((x) => x.id);
+  const filasCom = P.momentos.map((mo) => {
+    let p = 0;
+    let k = 0;
+    lista.filter((e) => (momIds.includes(e.m) ? e.m : 'extras') === mo.id && ALI[e.id]).forEach((e) => { const v = valE(e); p += v.p; k += v.k; });
+    if (mo.id === 'extras') p += (DB.prot[fISO] || []).reduce((a, b) => a + b, 0);
+    return p || k ? `<div class="fr"><span>${esc(mo.nombre)}</span><span class="v">${fmt(p, 0)} g · ${fmt(k, 0)} kcal</span></div>` : '';
+  }).join('');
+  h += `<section class="t alta tarjeta-dia" style="background-color:var(--comida)">
+    <div class="ses-top"><span class="t-k">Comida</span><span class="k claro">${DB.crea[fISO] ? 'Creatina ✓' : ''}</span></div>
+    <div class="cuentas"><span><b>${prot}</b><small> / ${P.nutricion.proteinaMeta} g prot.</small></span><span><b>${fmt(kcal, 0)}</b><small>${E.b.macros ? ` / ${fmt(E.b.macros.kcal, 0)}` : ''} kcal</small></span></div>
+    ${filasCom ? `<div class="filas">${filasCom}</div>` : '<p class="ses-sub">No cargaste comida ese día.</p>'}
+    <button type="button" class="secund" data-comida-dia="${fISO}" data-ir-comida="1">Editar la comida de ese día</button>
+  </section>`;
+
+  // peso
+  h += `<section class="t tarjeta peso-t chica" style="background-color:var(--cuerpo)"><span class="t-k">Peso en ayunas</span><span>${DB.peso[fISO] ? `<span class="t-n">${esc(DB.peso[fISO])}</span><span class="t-u"> kg</span>` : '<span class="t-u">Sin dato</span>'}</span></section>`;
   return h;
 }
 
@@ -732,25 +826,15 @@ function bloqueActual(x, dISO) {
 const reloj = (t0) => { const s = Math.max(0, Math.floor((Date.now() - t0) / 1000)); const m = Math.floor(s / 60); return m >= 60 ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` : `${m}:${String(s % 60).padStart(2, '0')}`; };
 
 // ---------- pantalla: RESUMEN ----------
+let resumenDia = null; // fecha del resumen (null = hoy)
 function vistaResumen() {
-  const d = hoy();
-  const dISO = iso(d);
-  const ent = DB.entrenos[dISO];
-  const S = armarSesion(d);
-  const ejercicios = ejerciciosDe(S);
-  let series = 0;
-  let volumen = 0;
-  for (const x of ejercicios) {
-    const e = DB.logs[dISO]?.[x.logId];
-    rango(x.series || 1).forEach((i) => {
-      if (!e?.d?.[i]) return;
-      series++;
-      if (!x.sinPeso) volumen += (num(kAt(e, i)) || 0) * (e.r?.[i] || 0);
-    });
-  }
+  const dISO = resumenDia || iso(hoy());
+  const d = parseISO(dISO);
+  const ent = DB.entrenos[dISO] || {};
+  const { S, ejercicios, series, volumen } = cuentaSesion(dISO);
   const subir = ejercicios.map((x) => ({ x, s: evaluarSubida(x, DB.logs[dISO]?.[x.logId]) })).filter((o) => o.s);
   const faltan = ejercicios.filter((x) => !completo(x, dISO));
-  const min = Math.max(1, Math.round(((ent.fin || Date.now()) - ent.inicio) / 60000));
+  const min = ent.inicio ? Math.max(1, Math.round(((ent.fin || Date.now()) - ent.inicio) / 60000)) : '—';
 
   let h = `<header class="ini-top"><span class="k fuerte">Sesión hecha</span><span class="k">${esc(fechaMedia(d))}</span></header>
     <h1 class="big titulo-res">${esc(S.s.titulo)}</h1>
@@ -766,7 +850,7 @@ function vistaResumen() {
   if (faltan.length) {
     h += `<section class="c"><p class="k">Quedaron sin hacer</p><ul class="res-lista">${faltan.map((x) => `<li><span>${esc(x.nombre)}</span></li>`).join('')}</ul><p class="mut chico">No los recuperes: seguí con el plan.</p></section>`;
   }
-  h += '<button type="button" class="primario" data-tab="inicio">Volver al inicio</button>';
+  h += `<button type="button" class="primario" data-accion="volver-resumen">${resumenDia ? 'Volver al día' : 'Volver al inicio'}</button>`;
   return h;
 }
 
@@ -912,24 +996,39 @@ function picker() {
 }
 
 function vistaNutri() {
-  const d = hoy();
-  const dISO = iso(d);
+  const hISO = iso(hoy());
+  const dISO = comidaDia && comidaDia < hISO ? comidaDia : hISO;
+  const d = parseISO(dISO);
   const E = estado(dISO);
   const N = P.nutricion;
   const m = E.b.macros;
   const { prot, kcal } = totales(dISO);
   const metaP = N.proteinaMeta;
   const metaK = m?.kcal;
-  const pctP = Math.min(100, (prot / metaP) * 100);
-  const pctK = metaK ? Math.min(100, (kcal / metaK) * 100) : 0;
-  const pasado = metaK && kcal > metaK * 1.05;
   const lista = DB.comida[dISO] || [];
   const momIds = P.momentos.map((x) => x.id);
+  const esHoy = dISO === hISO;
+  const X = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
-  let h = `<header class="top"><h1 class="big">Comida</h1><p class="chip">${chipBloque(E)} · ${prot} g · ${fmt(kcal, 0)} kcal</p></header>`;
+  let h = `<header class="cab"><div><h1>Comida</h1><span class="k">${esHoy ? `${DIAS[d.getDay()]} ${d.getDate()}` : `${DIAS[d.getDay()]} ${d.getDate()} · ${cuandoFue(dISO)}`} · ${esc(E.b.etiqueta.split(' · ')[0])}</span></div>${esHoy ? '' : BTN_HOY('data-comida-dia="hoy"')}</header>`;
+  h += tiraDias(dISO, 'comida');
 
+  // héroe: proteína
+  const marca = Math.min(96, (prot / metaP) * 80); // la meta queda al 80 % de la regla
+  const falta = metaP - prot;
+  h += `<section class="t heroe-com" style="background-color:var(--comida)">
+    <span class="heroe-k">Proteína</span>
+    <span class="heroe-n"><span class="dot">${prot}</span><span class="heroe-u">/ ${metaP} g</span></span>
+    <span class="ruler"><span class="tri" style="left:calc(${marca}% - 7px)"></span><span class="mk" style="left:calc(${marca}% - 1.5px)"></span><span class="meta-l"></span></span>
+    <span class="com-txt">${falta > 0 ? `Te faltan ${falta} g${falta >= 20 ? ' · si no llegás: whey' : ''}` : 'Proteína cubierta'}</span>
+    <span class="sep"></span>
+    <span class="com-pie"><span><span class="t-n chico">${fmt(kcal, 0)}</span><span class="t-u"> ${metaK ? `/ ${fmt(metaK, 0)} ` : ''}kcal${metaK && kcal > metaK * 1.05 ? ' · te pasaste' : ''}</span></span>
+      <button type="button" class="secund chico${DB.crea[dISO] ? ' on' : ''}" data-accion="crea">${DB.crea[dISO] ? '✓ Creatina' : '○ Creatina'}</button></span>
+  </section>`;
+
+  // momentos del día
+  h += '<div class="momentos">';
   for (const mo of P.momentos) {
-    // lo cargado sin momento (versión anterior) va a Extras
     const items = lista.map((e, i) => ({ e, i })).filter(({ e }) => (momIds.includes(e.m) ? e.m : 'extras') === mo.id && ALI[e.id]);
     const rapidas = mo.id === 'extras' ? DB.prot[dISO] || [] : [];
     let p = rapidas.reduce((a, b) => a + b, 0);
@@ -937,63 +1036,42 @@ function vistaNutri() {
     items.forEach(({ e }) => { const v = valE(e); p += v.p; k += v.k; });
     const tipo = mo.tipo != null ? P.comidasTipo[mo.tipo] : null;
     const abierto = pickerMom === mo.id;
-    h += `<section class="c momento">
-      <div class="mom-top"><span class="mom-n">${esc(mo.nombre)}</span><span class="mut">${items.length || rapidas.length ? `${Math.round(p)} g · ${Math.round(k)} kcal` : 'vacío'}</span></div>
-      ${items.map(({ e, i }) => {
-        const a = ALI[e.id];
-        const v = valE(e);
-        let fila = `<div class="item-c"><button type="button" class="item-n" data-edit-ent="${i}"><b>${esc(a.nombre)}</b><small>${fmtC(e.c)} × ${esc(a.porcion)}${e.p != null ? ' · corregido' : ''} · ✎</small></button><span class="mut">${fmt(v.p)} g · ${Math.round(v.k)}</span><button type="button" class="x" data-borrar="${i}" aria-label="Borrar">✕</button></div>`;
-        if (editEnt === i) {
-          fila += `<div class="edit-v"><p class="k">Lo que comiste (${fmtC(e.c)} × ${esc(a.porcion)})</p>
-            <div class="cn-fila">${campoNum('ee-p', +fmt(v.p).replace(',', '.'), 'g', 'Proteína')}${campoNum('ee-k', Math.round(v.k), 'kcal', 'Calorías')}</div>
-            <div class="dos"><button type="button" class="secund" data-guardar-ent="${i}|hoy">Solo esta vez</button><button type="button" class="secund confirmar" data-guardar-ent="${i}|siempre">Usar siempre</button></div>
-            <p class="mut chico">"Usar siempre" cambia los valores de ${esc(a.nombre)} para las próximas veces.</p>
-          </div>`;
-        }
-        return fila;
-      }).join('')}
-      ${rapidas.map((g, i) => `<div class="item-c"><span><b>Carga rápida</b><small>versión anterior</small></span><span class="mut">${g} g</span><button type="button" class="x" data-borrar-prot="${i}" aria-label="Borrar">✕</button></div>`).join('')}
-      <div class="mom-acc">
-        ${tipo && !items.length ? `<button type="button" class="secund" data-tipo="${mo.tipo}" data-mom="${mo.id}">Cargar ${esc(mo.nombre.toLowerCase())} tipo</button>` : ''}
-        <button type="button" class="secund${abierto ? ' on-mom' : ''}" data-picker="${mo.id}">${abierto ? 'Listo' : '+ Alimento'}</button>
-      </div>
-      ${abierto ? picker() : ''}
-    </section>`;
+    const btnTipo = tipo ? `<button type="button" class="secund chico" data-tipo="${mo.tipo}" data-mom="${mo.id}">Tipo</button>` : '';
+    const btnAgregar = `<button type="button" class="secund chico${abierto ? ' on-mom' : ''}" data-picker="${mo.id}">${abierto ? 'Listo' : '+ Alimento'}</button>`;
+    if (!items.length && !rapidas.length && !abierto) {
+      h += `<div class="vacio"><span class="vacio-n">${esc(mo.nombre)}</span><span class="vacio-b">${btnTipo}${btnAgregar}</span></div>`;
+      continue;
+    }
+    h += `<section class="mom"><div class="mh"><h3>${esc(mo.nombre)}</h3><span class="k">${items.length || rapidas.length ? `${fmt(p, 0)} g · ${Math.round(k)} kcal` : ''}</span></div><div class="mom-items">`;
+    h += items.map(({ e, i }) => {
+      const a = ALI[e.id];
+      const v = valE(e);
+      let fila = `<div class="it"><button type="button" class="item-n" data-edit-ent="${i}"><b>${esc(a.nombre)}</b><small>${fmtC(e.c)} × ${esc(a.porcion)}${e.p != null ? ' · corregido' : ''}</small></button><span class="v">${fmt(v.p)} g · ${Math.round(v.k)}</span><button type="button" class="x" data-borrar="${i}" aria-label="Borrar ${esc(a.nombre)}">${X}</button></div>`;
+      if (editEnt === i) {
+        fila += `<div class="edit-v"><p class="k">Lo que comiste (${fmtC(e.c)} × ${esc(a.porcion)})</p>
+          <div class="cn-fila">${campoNum('ee-p', +fmt(v.p).replace(',', '.'), 'g', 'Proteína')}${campoNum('ee-k', Math.round(v.k), 'kcal', 'Calorías')}</div>
+          <div class="dos"><button type="button" class="secund" data-guardar-ent="${i}|hoy">Solo esta vez</button><button type="button" class="secund confirmar" data-guardar-ent="${i}|siempre">Usar siempre</button></div>
+          <p class="mut chico">"Usar siempre" cambia los valores de ${esc(a.nombre)} para las próximas veces.</p></div>`;
+      }
+      return fila;
+    }).join('');
+    h += rapidas.map((g, i) => `<div class="it"><span class="item-n"><b>Carga rápida</b><small>versión anterior</small></span><span class="v">${g} g</span><button type="button" class="x" data-borrar-prot="${i}" aria-label="Borrar">${X}</button></div>`).join('');
+    h += `</div><div class="mom-acc">${items.length ? '' : btnTipo}${btnAgregar}</div>${abierto ? picker() : ''}</section>`;
   }
+  h += '</div>';
 
-  h += `<p class="titulo-sec" style="--tc:var(--prot)">Resumen del día</p><section class="c">
-    <div class="macro"><span class="k">Proteína</span><span><b class="big">${prot}</b> <span class="mut">/ ${metaP} g</span></span></div>
-    <div class="bar${prot >= metaP ? ' llena' : ''}"><span style="width:${pctP}%"></span></div>
-    <div class="macro"><span class="k">Calorías</span><span><b class="big">${fmt(kcal, 0)}</b> <span class="mut">${metaK ? `/ ${fmt(metaK, 0)}` : 'mantenimiento'}</span></span></div>
-    ${metaK ? `<div class="bar kcal${pasado ? ' pasado' : ''}"><span style="width:${pctK}%"></span></div>` : ''}
-    <p class="meta">${prot >= metaP ? 'Proteína cubierta.' : `Te faltan ${metaP - prot} g de proteína.${metaP - prot >= 20 ? ' Si no llegás: whey.' : ''}`}${metaK ? (pasado ? ' Te pasaste de las kcal del día.' : ` Te quedan ${fmt(metaK - kcal, 0)} kcal.`) : ''}</p>
-    <button type="button" class="check-foto mini${DB.crea[dISO] ? ' on' : ''}" data-accion="crea">${DB.crea[dISO] ? '✓ Creatina tomada' : '○ Creatina 5 g'}</button>
-  </section>`;
-
-  h += '<p class="titulo-sec" style="--tc:var(--mut)">Guía</p>';
-  if (m) {
-    h += `<details class="card plegable"><summary><h3>Macros · ${esc(E.b.etiqueta)}</h3></summary>
-      <div class="tiles">
-        <div class="tile"><b class="big">${fmt(m.kcal, 0)}</b><span>kcal</span></div>
-        <div class="tile"><b class="big">${m.prot} g</b><span>proteína</span></div>
-        <div class="tile"><b class="big">~${m.grasa} g</b><span>grasa</span></div>
-        <div class="tile"><b class="big">~${m.carbs} g</b><span>carbos</span></div>
-      </div>
-      <p class="meta">${esc(N.objetivo)}</p></details>`;
-  }
+  // guía
   const sinCarbCena = ['z2', 'domingo'].includes(claveDe(d));
-  h += `<details class="card plegable"${sinCarbCena ? ' open' : ''}><summary><h3>Día tipo</h3></summary>
-    ${sinCarbCena ? `<p class="aviso mini">Hoy es día liviano (${esc(titulo(claveDe(d)))}): sin papa ni arroz en la cena.</p>` : ''}
-    <ul class="comidas-lista">${N.diaTipo.map((c) => `<li><div><b>${esc(c.comida)}</b><p>${esc(c.detalle)}</p></div><span>~${c.prot} g</span></li>`).join('')}</ul>
-    <ul class="reglas">${N.notasDia.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`;
-
-  let avisoAlcohol = '';
   const manana = claveDe(addDays(d, 1));
-  if (['piernas', 'viernes'].includes(manana)) avisoAlcohol = `<p class="aviso mini">Hoy no hay salida: mañana tenés ${esc(titulo(manana))}.</p>`;
-  else if (d.getMonth() === 11) avisoAlcohol = '<p class="aviso mini">Diciembre: lo mínimo posible.</p>';
-  h += `<details class="card plegable"${avisoAlcohol ? ' open' : ''}><summary><h3>Alcohol y comida libre</h3></summary>${avisoAlcohol}
-    <ul class="reglas">${N.alcohol.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`;
-  h += `<details class="card plegable"><summary><h3>Todos los días y suplementos</h3></summary><ul class="reglas">${N.otros.concat(N.suplementos).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`;
+  const avisoAlc = ['piernas', 'viernes'].includes(manana) ? `Hoy no: mañana ${titulo(manana).toLowerCase()}` : d.getMonth() === 11 ? 'Diciembre: lo mínimo' : '';
+  const guia = (titulo, cuerpo, derecha = '') => `<details class="guia-f"><summary><span>${titulo}</span><span class="fr-d">${derecha}${CHEV}</span></summary><div class="guia-c">${cuerpo}</div></details>`;
+  h += '<p class="k guia-t">Guía</p><div class="guia">';
+  if (m) h += guia('Macros del bloque', `<div class="tiles"><div class="tile"><b class="big">${fmt(m.kcal, 0)}</b><span>kcal</span></div><div class="tile"><b class="big">${m.prot} g</b><span>proteína</span></div><div class="tile"><b class="big">~${m.grasa} g</b><span>grasa</span></div><div class="tile"><b class="big">~${m.carbs} g</b><span>carbos</span></div></div><p class="meta">${esc(N.objetivo)}</p>`);
+  else h += guia('Macros del bloque', `<p class="meta">${esc(N.mantenimiento)}</p>`);
+  h += guia('Día tipo', `${sinCarbCena ? `<p class="aviso-t">Hoy es día liviano: sin papa ni arroz en la cena.</p>` : ''}<ul class="comidas-lista">${N.diaTipo.map((c) => `<li><div><b>${esc(c.comida)}</b><p>${esc(c.detalle)}</p></div><span>~${c.prot} g</span></li>`).join('')}</ul><ul class="reglas">${N.notasDia.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`, sinCarbCena ? '<span class="aviso-t">Sin papa ni arroz</span>' : '');
+  h += guia('Alcohol y comida libre', `<ul class="reglas">${N.alcohol.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`, avisoAlc ? `<span class="aviso-t">${esc(avisoAlc)}</span>` : '');
+  h += guia('Todos los días y suplementos', `<ul class="reglas">${N.otros.concat(N.suplementos).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`);
+  h += '</div>';
   return h;
 }
 
@@ -1527,8 +1605,14 @@ document.addEventListener('click', (ev) => {
   const el = ev.target.closest('button, summary');
   if (!el) return;
   const dISO = iso(hoy());
+  const fC = comidaDia && comidaDia < dISO ? comidaDia : dISO; // fecha con la que trabaja Comida
 
-  if (el.dataset.tab) { propuesta = null; return render(el.dataset.tab); }
+  if (el.dataset.tab) {
+    propuesta = null;
+    // tocar una pestaña de la barra vuelve a hoy
+    if (el.closest('.nav')) { diaVer = null; comidaDia = null; semanaVista = 0; resumenDia = null; }
+    return render(el.dataset.tab);
+  }
 
   // técnica del ejercicio
   if (el.classList.contains('nombre')) {
@@ -1565,7 +1649,7 @@ document.addEventListener('click', (ev) => {
   if (el.dataset.ali) { aliSel = aliSel === el.dataset.ali ? null : el.dataset.ali; editAli = null; return render('nutri', true); }
   if (el.dataset.add) {
     const [id, c] = el.dataset.add.split('|');
-    (DB.comida[dISO] ||= []).push({ id, c: +c, m: pickerMom || 'extras', t: Date.now() });
+    (DB.comida[fC] ||= []).push({ id, c: +c, m: pickerMom || 'extras', t: Date.now() });
     save();
     aliSel = null;
     render('nutri', true);
@@ -1577,7 +1661,7 @@ document.addEventListener('click', (ev) => {
   }
   if (el.dataset.guardarEnt) {
     const [i, modo] = el.dataset.guardarEnt.split('|');
-    const e = DB.comida[dISO][+i];
+    const e = DB.comida[fC][+i];
     const pv = num($('#ee-p').value);
     const kv = num($('#ee-k').value);
     if (pv == null || kv == null) return toast('Poné proteína y calorías');
@@ -1614,13 +1698,13 @@ document.addEventListener('click', (ev) => {
   }
   if (el.dataset.tipo) {
     const c = P.comidasTipo[+el.dataset.tipo];
-    c.items.forEach(([id, n]) => (DB.comida[dISO] ||= []).push({ id, c: n, m: el.dataset.mom, t: Date.now() }));
+    c.items.forEach(([id, n]) => (DB.comida[fC] ||= []).push({ id, c: n, m: el.dataset.mom, t: Date.now() }));
     save();
     render('nutri', true);
     return toast(`Agregado: ${c.nombre}`);
   }
-  if (el.dataset.borrar) { (DB.comida[dISO] || []).splice(+el.dataset.borrar, 1); save(); return render('nutri', true); }
-  if (el.dataset.borrarProt) { (DB.prot[dISO] || []).splice(+el.dataset.borrarProt, 1); save(); return render('nutri', true); }
+  if (el.dataset.borrar) { (DB.comida[fC] || []).splice(+el.dataset.borrar, 1); editEnt = null; save(); return render('nutri', true); }
+  if (el.dataset.borrarProt) { (DB.prot[fC] || []).splice(+el.dataset.borrarProt, 1); save(); return render('nutri', true); }
   if (el.dataset.picker) { pickerMom = pickerMom === el.dataset.picker ? null : el.dataset.picker; aliSel = null; catSel = null; busqueda = ''; creando = false; editAli = null; return render('nutri', true); }
   if (el.dataset.cat) { catSel = el.dataset.cat; aliSel = null; return render('nutri', true); }
 
@@ -1638,9 +1722,20 @@ document.addEventListener('click', (ev) => {
     return render(tab, true);
   }
   if (el.dataset.verDia) {
-    if (el.dataset.verDia === iso(hoy())) { semanaVista = 0; return render('inicio', true); }
-    return toast('Ver días anteriores llega en la próxima etapa');
+    diaVer = el.dataset.verDia === dISO ? null : el.dataset.verDia;
+    if (!diaVer) semanaVista = 0;
+    return render('inicio');
   }
+  if (el.dataset.comidaDia) {
+    comidaDia = el.dataset.comidaDia === 'hoy' || el.dataset.comidaDia === dISO ? null : el.dataset.comidaDia;
+    if (!comidaDia) semanaVista = 0;
+    else semanaVista = Math.min(0, Math.floor((parseISO(iso(lunesDe(parseISO(comidaDia)))) - parseISO(iso(lunesDe(hoy())))) / (7 * 864e5)));
+    pickerMom = null; editEnt = null;
+    return render('nutri');
+  }
+  if (el.dataset.resumen) { resumenDia = el.dataset.resumen; return render('resumen'); }
+  if (el.dataset.cambiarDia) { diaAbierto = +el.dataset.cambiarDia; return render('semana'); }
+  if (el.dataset.ej) { ejSel = el.dataset.ej; return render('progreso'); }
   if (el.dataset.ignorarPadel) { DB.garmin.ignorados.push(el.dataset.ignorarPadel); save(); return render('inicio', true); }
   if (el.dataset.poner) {
     const [f, k] = el.dataset.poner.split('|');
@@ -1667,10 +1762,12 @@ document.addEventListener('click', (ev) => {
   if (acc === 'continuar') { unlockAudio(); render('entreno'); return irAlActual(); }
   if (acc === 'salir') return render('inicio');
   if (acc === 'terminar') {
+    resumenDia = null;
     if (ent) { ent.fin = Date.now(); save(); setTimeout(() => subirNube(false), 500); }
     return render('resumen');
   }
-  if (acc === 'resumen') return render('resumen');
+  if (acc === 'resumen') { resumenDia = null; return render('resumen'); }
+  if (acc === 'volver-resumen') { const f = resumenDia; resumenDia = null; diaVer = f; return render('inicio'); }
   if (acc === 'reabrir') { if (ent) { delete ent.fin; save(); } return render('entreno'); }
   if (acc === 'confirmar-prop') { aplicar(propuesta); const m = textoCambios(propuesta); propuesta = null; render('semana', true); return toast(m ? `Listo: ${m}` : 'Listo'); }
   if (acc === 'cancelar-prop') { propuesta = null; return render('semana', true); }
@@ -1697,7 +1794,7 @@ document.addEventListener('click', (ev) => {
     } else { const t = $('#pegar-txt'); t.hidden = false; t.focus(); }
     return;
   }
-  if (acc === 'crea') { DB.crea[dISO] = !DB.crea[dISO]; save(); return render('nutri', true); }
+  if (acc === 'crea') { DB.crea[fC] = !DB.crea[fC]; save(); return render('nutri', true); }
   if (acc === 'foto') { const t = (DB.tests[testSel] ||= {}); t.foto = !t.foto; save(); return render('progreso', true); }
   if (acc === 'nube-conectar') {
     const token = $('#nube-token').value.trim();

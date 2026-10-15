@@ -22,9 +22,29 @@ function load() {
   return blank();
 }
 let DB = load();
+const VERSION = 10; // subirla junto con el ?v= de index.html
+// Candado: si de golpe hay muchos menos registros que los guardados, no pisa los datos.
+const cantidad = (d) => ['logs', 'comida', 'salud', 'peso', 'entrenos'].reduce((a, k) => a + Object.keys(d?.[k] || {}).length, 0);
+let cantGuardada = cantidad(DB);
 function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { toast('No se pudo guardar en el celular'); }
+  const n = cantidad(DB);
+  if (cantGuardada >= 10 && n < cantGuardada * 0.5) { toast('No guardé: parecía que se borraban muchos datos.'); return; }
+  try {
+    localStorage.setItem(KEY, JSON.stringify(DB));
+    localStorage.setItem(`${KEY}.cambio`, String(Date.now()));
+    cantGuardada = n;
+  } catch (e) { toast('No se pudo guardar en el celular'); }
 }
+// Copia local completa cada vez que se abre una versión nueva de la app (antes de tocar nada).
+(function respaldoLocal() {
+  try {
+    const actual = localStorage.getItem(KEY);
+    if (!actual || localStorage.getItem(`${KEY}.respaldo.version`) === String(VERSION)) return;
+    localStorage.setItem(`${KEY}.respaldo`, actual);
+    localStorage.setItem(`${KEY}.respaldo.version`, String(VERSION));
+    localStorage.setItem(`${KEY}.respaldo.fecha`, new Date().toISOString());
+  } catch (e) { /* sin espacio: seguimos igual */ }
+}());
 
 // ---------- fechas ----------
 const parseISO = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d, 12); };
@@ -988,13 +1008,24 @@ function vistaProgreso() {
     <div class="segmentos chico">${P.tests.campos.map((c) => `<button type="button" class="${c.id === campoSel ? 'on' : ''}" data-campo="${c.id}">${esc(c.nombre)}</button>`).join('')}</div>
     <div id="grafico">${grafico(campoSel)}</div></section>`;
 
+  const nc = nubeCfg();
+  const resp = localStorage.getItem(`${KEY}.respaldo.fecha`);
   h += `<section class="card"><h3>Backup</h3>
-    <p class="meta">Tus datos viven solo en este celular. Exportá un backup cada tanto y guardalo en Archivos, Drive o mandátelo por mail.</p>
+    <p class="k">Copia en la nube</p>
+    ${nc.token ? `<p class="meta">${nc.ultima ? `Última copia ${hace(nc.ultima)}.` : 'Todavía no se subió ninguna copia.'}${nc.error ? ` <span class="warn">Último intento falló (${esc(nc.error)}).</span>` : ''} Se sube sola cuando hay cambios.</p>
+      <div class="botonera"><button type="button" class="btn" data-accion="nube-subir">Subir ahora</button><button type="button" class="btn sec" data-accion="nube-traer">Traer de la nube</button></div>
+      <button type="button" class="link chico" data-accion="nube-salir">Desconectar</button>`
+    : `<p class="meta">Guarda una copia automática en tu repo privado de GitHub. Pegá la clave una sola vez.</p>
+      <label class="cn ancho"><span>Clave de GitHub</span><input id="nube-token" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+      <button type="button" class="btn" data-accion="nube-conectar">Conectar</button>`}
+    <p class="k" style="margin-top:16px">Archivo</p>
+    <p class="meta">Exportá un backup cada tanto y guardalo en Archivos o mandátelo por mail.</p>
     <div class="botonera">
       <button type="button" class="btn" data-accion="exportar">Exportar</button>
       <button type="button" class="btn sec" data-accion="importar">Importar</button>
     </div>
     <input type="file" id="archivo" accept="application/json,.json" hidden>
+    ${resp ? `<p class="meta" style="margin-top:14px">Copia local automática: ${esc(new Date(resp).toLocaleString('es-AR', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }))}. <button type="button" class="link chico" data-accion="restaurar-local">Restaurar</button></p>` : ''}
   </section>`;
   return h;
 }
@@ -1290,6 +1321,67 @@ function toast(msg) {
   toastT = setTimeout(() => { el.hidden = true; }, 2500);
 }
 
+// ---------- copia en la nube (repo privado de GitHub) ----------
+const NUBE = { repo: 'nico-caride/entreno-datos', archivo: 'datos.json' };
+const nubeCfg = () => { try { return JSON.parse(localStorage.getItem(`${KEY}.nube`)) || {}; } catch (e) { return {}; } };
+const setNube = (c) => { try { localStorage.setItem(`${KEY}.nube`, JSON.stringify({ ...nubeCfg(), ...c })); } catch (e) { /* nada */ } };
+const b64 = (t) => btoa(unescape(encodeURIComponent(t)));
+const deB64 = (b) => decodeURIComponent(escape(atob(b.replace(/\s/g, ''))));
+function ghFetch(metodo, cuerpo, token = nubeCfg().token) {
+  return fetch(`https://api.github.com/repos/${NUBE.repo}/contents/${NUBE.archivo}`, {
+    method: metodo,
+    cache: 'no-store',
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', ...(cuerpo ? { 'Content-Type': 'application/json' } : {}) },
+    body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+  });
+}
+let subiendo = false;
+async function subirNube(manual) {
+  const cfg = nubeCfg();
+  if (!cfg.token || subiendo) return;
+  if (!navigator.onLine) { if (manual) toast('Sin conexión'); return; }
+  subiendo = true;
+  try {
+    const contenido = JSON.stringify({ app: 'entreno', version: 2, fecha: new Date().toISOString(), datos: DB });
+    const put = (sha) => ghFetch('PUT', { message: `Copia ${new Date().toISOString().slice(0, 16)}`, content: b64(contenido), ...(sha ? { sha } : {}) });
+    let r = await put(cfg.sha);
+    if (r.status === 409 || r.status === 422) {
+      const g = await ghFetch('GET');
+      r = await put(g.ok ? (await g.json()).sha : null);
+    }
+    if (!r.ok) throw new Error(String(r.status));
+    const j = await r.json();
+    setNube({ sha: j.content.sha, ultima: Date.now(), error: null });
+    if (manual) toast('Copia subida a la nube');
+  } catch (e) {
+    setNube({ error: e.message });
+    if (manual) toast(e.message === '401' ? 'La clave no sirve o venció' : 'No se pudo subir la copia');
+  } finally {
+    subiendo = false;
+    if (manual && tab === 'progreso') render('progreso', true);
+  }
+}
+// Sube sola si hubo cambios y pasaron 10 minutos desde la última copia.
+function autoNube() {
+  const cfg = nubeCfg();
+  if (!cfg.token) return;
+  const cambio = +localStorage.getItem(`${KEY}.cambio`) || 0;
+  if (cambio > (cfg.ultima || 0) && Date.now() - (cfg.ultima || 0) > 10 * 6e4) subirNube(false);
+}
+const hace = (ts) => {
+  const m = Math.round((Date.now() - ts) / 6e4);
+  if (m < 1) return 'recién';
+  if (m < 60) return `hace ${m} min`;
+  if (m < 48 * 60) return `hace ${Math.round(m / 60)} h`;
+  return `hace ${Math.round(m / 1440)} días`;
+};
+function reemplazarDatos(datos) {
+  DB = Object.assign(blank(), datos);
+  armarALI();
+  cantGuardada = 0; // es una restauración a propósito: no aplica el candado
+  save();
+}
+
 // ---------- backup ----------
 async function exportar() {
   const nombre = `entreno-backup-${iso(new Date())}.json`;
@@ -1314,9 +1406,7 @@ function importar(file) {
       const datos = j.datos || j;
       if (!datos || typeof datos !== 'object' || !('logs' in datos)) throw new Error('formato');
       if (!confirm('Esto reemplaza todos los datos del celular por los del backup. ¿Seguimos?')) return;
-      DB = Object.assign(blank(), datos);
-      armarALI();
-      save();
+      reemplazarDatos(datos);
       toast('Backup importado');
       render('inicio');
     } catch (e) { toast('Ese archivo no es un backup válido'); }
@@ -1518,7 +1608,7 @@ document.addEventListener('click', (ev) => {
   if (acc === 'continuar') { unlockAudio(); render('entreno'); return irAlActual(); }
   if (acc === 'salir') return render('inicio');
   if (acc === 'terminar') {
-    if (ent) { ent.fin = Date.now(); save(); }
+    if (ent) { ent.fin = Date.now(); save(); setTimeout(() => subirNube(false), 500); }
     return render('resumen');
   }
   if (acc === 'resumen') return render('resumen');
@@ -1550,6 +1640,38 @@ document.addEventListener('click', (ev) => {
   }
   if (acc === 'crea') { DB.crea[dISO] = !DB.crea[dISO]; save(); return render('nutri', true); }
   if (acc === 'foto') { const t = (DB.tests[testSel] ||= {}); t.foto = !t.foto; save(); return render('progreso', true); }
+  if (acc === 'nube-conectar') {
+    const token = $('#nube-token').value.trim();
+    if (!token) return toast('Pegá la clave primero');
+    ghFetch('GET', null, token).then((r) => {
+      if (r.status === 401 || r.status === 403) return toast('Esa clave no tiene permiso. Revisá los pasos.');
+      setNube({ token, sha: null, error: null });
+      if (r.ok) r.json().then((j) => setNube({ sha: j.sha }));
+      subirNube(true);
+    }).catch(() => toast('Sin conexión'));
+    return;
+  }
+  if (acc === 'nube-subir') return subirNube(true);
+  if (acc === 'nube-salir') { if (confirm('¿Desconectar la copia en la nube? Tus datos quedan en el celular.')) { localStorage.removeItem(`${KEY}.nube`); render('progreso', true); } return; }
+  if (acc === 'nube-traer') {
+    ghFetch('GET').then(async (r) => {
+      if (!r.ok) return toast('No encontré una copia en la nube');
+      const j = await r.json();
+      const datos = JSON.parse(deB64(j.content));
+      if (!confirm(`¿Reemplazar los datos del celular por la copia de la nube del ${new Date(datos.fecha).toLocaleString('es-AR')}?`)) return;
+      reemplazarDatos(datos.datos || datos);
+      setNube({ sha: j.sha });
+      render('inicio');
+      toast('Datos restaurados desde la nube');
+    }).catch(() => toast('Sin conexión'));
+    return;
+  }
+  if (acc === 'restaurar-local') {
+    if (!confirm('¿Volver a la copia local automática? Se pierde lo que cargaste después.')) return;
+    reemplazarDatos(JSON.parse(localStorage.getItem(`${KEY}.respaldo`)));
+    render('inicio');
+    return toast('Copia local restaurada');
+  }
   if (acc === 'exportar') return exportar();
   if (acc === 'importar') return $('#archivo').click();
 });
@@ -1663,7 +1785,10 @@ document.addEventListener('visibilitychange', () => {
   if (T.int) { tick(); pedirWakeLock(); }
   if (tab === 'entreno') pedirWakeLock();
   if (iso(hoy()) !== fechaRender) render(tab === 'entreno' || tab === 'resumen' ? 'inicio' : tab);
+  autoNube();
 });
+setTimeout(autoNube, 3000);
+setInterval(autoNube, 10 * 6e4);
 
 // Al abrir: si quedó un entrenamiento a medias hoy, vuelve directo a él.
 const entHoy = DB.entrenos[iso(hoy())];

@@ -25,7 +25,7 @@ function load() {
   return blank();
 }
 let DB = load();
-const VERSION = 13; // subirla junto con el ?v= de index.html
+const VERSION = 14; // subirla junto con el ?v= de index.html
 // Candado: si de golpe hay muchos menos registros que los guardados, no pisa los datos.
 const cantidad = (d) => ['logs', 'comida', 'salud', 'peso', 'entrenos'].reduce((a, k) => a + Object.keys(d?.[k] || {}).length, 0);
 let cantGuardada = cantidad(DB);
@@ -482,7 +482,7 @@ function heroeRecuperacion(d) {
   }
   const z = zonaR(r.p);
   const [titulo, consejo] = RECO_R[z];
-  return `<button type="button" class="heroe" data-tab="progreso" aria-label="Recuperación ${r.p} %, ver sueño y pulso">
+  return `<button type="button" class="heroe" data-detalle="sueno" aria-label="Recuperación ${r.p} %, ver sueño y pulso">
     <span class="heroe-k">Recuperación</span>
     <span class="heroe-n"><span class="dot">${r.p}</span><span class="heroe-u">%</span></span>
     <span class="ruler"><span class="tri" style="left:calc(${r.p}% - 7px)"></span><span class="mk" style="left:calc(${r.p}% - 1.5px)"></span></span>
@@ -580,9 +580,9 @@ function vistaDiaPasado(fISO) {
   let h = `<header class="cab"><div><h1>${DIAS[d.getDay()]} ${d.getDate()}</h1><span class="k">${cuandoFue(fISO)} · ${chipBloque(E)}</span></div>${BTN_HOY(`data-ver-dia="${iso(hoy())}"`)}</header>`;
   h += tiraDias(fISO);
   h += `<div class="minis">
-    <button type="button" class="mini" data-tab="progreso"><span class="k">Recuperación</span><span class="mini-n">${r ? `${r.p} <small>%</small>` : '—'}</span></button>
-    <button type="button" class="mini" data-tab="progreso"><span class="k"><i class="pto" style="background:var(--sueno)"></i>Sueño</span><span class="mini-n">${s.horas != null ? `${hm(s.horas)} <small>h</small>` : '—'}</span></button>
-    <button type="button" class="mini" data-tab="progreso"><span class="k"><i class="pto" style="background:var(--pulso)"></i>Pulso</span><span class="mini-n">${s.fcr != null ? `${s.fcr} <small>lpm</small>` : '—'}</span></button>
+    <button type="button" class="mini" data-detalle="sueno"><span class="k">Recuperación</span><span class="mini-n">${r ? `${r.p} <small>%</small>` : '—'}</span></button>
+    <button type="button" class="mini" data-detalle="sueno"><span class="k"><i class="pto" style="background:var(--sueno)"></i>Sueño</span><span class="mini-n">${s.horas != null ? `${hm(s.horas)} <small>h</small>` : '—'}</span></button>
+    <button type="button" class="mini" data-detalle="sueno"><span class="k"><i class="pto" style="background:var(--pulso)"></i>Pulso</span><span class="mini-n">${s.fcr != null ? `${s.fcr} <small>lpm</small>` : '—'}</span></button>
   </div>`;
 
   // entrenamiento
@@ -649,9 +649,9 @@ function tarjetasDia(dISO) {
       </span>
     </button>
     <div class="t-par">
-      <button type="button" class="t tarjeta" style="background-color:var(--sueno)" data-tab="progreso">${ICON_IR}<span class="t-k">Sueño</span>
+      <button type="button" class="t tarjeta" style="background-color:var(--sueno)" data-detalle="sueno">${ICON_IR}<span class="t-k">Sueño</span>
         <span>${s.horas != null ? `<span class="t-n g">${hm(s.horas)}</span><span class="t-u"> h</span>` : '<span class="t-n g">—</span>'}</span></button>
-      <button type="button" class="t tarjeta" style="background-color:var(--pulso)" data-tab="progreso">${ICON_IR}<span class="t-k">Pulso</span>
+      <button type="button" class="t tarjeta" style="background-color:var(--pulso)" data-detalle="sueno">${ICON_IR}<span class="t-k">Pulso</span>
         <span>${s.fcr != null ? `<span class="t-n g">${s.fcr}</span><span class="t-u"> lpm${r?.dif != null ? ` · ${r.dif >= 0 ? '+' : ''}${fmt(r.dif, 0)} vs prom.` : ''}</span>` : '<span class="t-n g">—</span>'}</span></button>
     </div>`;
 }
@@ -664,7 +664,7 @@ function avisoUnico(d, E, clave) {
   if (E.fase === 'antes') a = `El plan arranca el ${fechaCorta(P.bloques[0].desde)}.`;
   else if (E.descarga) a = `<b>Semana de descarga:</b> la mitad de las series${clave === 'viernes' ? ' y hoy zona 2 en vez de intervalos' : ''}.`;
   else if (E.fase === 'plan' && E.b.volumenBajo) a = esc(E.b.aviso);
-  else if (t && !testCompleto(t.id)) a = 'Semana de tests: <button type="button" class="link chico" data-tab="progreso">cargalos en Cuerpo</button>';
+  else if (t && !testCompleto(t.id)) a = 'Semana de tests: <button type="button" class="link chico" data-detalle="tests">cargalos acá</button>';
   else if (avisoSeguidos(d)) a = `${esc(avisoSeguidos(d))} Si llegás cargado, cambiá uno por zona 2.`;
   else if (rango(7).map((i) => recuperacion(iso(addDays(d, -i)))).filter((r) => r && r.p < 40).length >= 3) a = 'Varios días con recuperación baja esta semana: considerá adelantar la descarga.';
   return a ? filaAviso(a) : '';
@@ -792,6 +792,7 @@ function bloqueActual(x, dISO) {
     ${meta ? `<p class="meta">${meta}</p>` : ''}
     ${tec ? `<div class="tec" hidden>${tecHTML(tec)}</div>` : ''}
     ${x.lista ? listaHTML(x) : ''}`;
+  if (!x.sinPeso) h += `<button type="button" class="link chico historial" data-historial="${esc(x.logId)}">Historial</button>`;
   if (x.opciones?.length) {
     h += `<button type="button" class="link chico" data-accion="ver-opciones">⇄ Cambiar ejercicio</button>
       <div class="opc-ej" hidden>${x.opciones.map(([k, n]) => `<button type="button" class="secund" data-opcion="${esc(x.base)}|${k}">${k === 'orig' ? '↺ ' : ''}${esc(n)}</button>`).join('')}</div>`;
@@ -1100,7 +1101,236 @@ function testCompleto(tid) {
   return P.tests.campos.every((c) => valorTest(tid, c.id) != null);
 }
 
+// ---------- pantalla: CUERPO (antes Progreso) ----------
+let detalle = null; // null = grilla · 'peso' · 'sueno' · 'ejercicios' · 'ejercicio' · 'tests' · 'ajustes'
+let volverA = null; // de dónde se abrió el detalle (para el botón ←)
+let periodo = 7; // 7 días · 28 · 0 = todo
+let ejLugar = null; // Gimnasio/Casa en el detalle de un ejercicio
+const enPeriodo = (f) => !periodo || f >= iso(addDays(hoy(), -periodo + 1));
+const ICON_ATRAS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>';
+const cabDetalle = (tituloD) => `<header class="cab-det"><button type="button" class="ico" data-accion="det-volver" aria-label="Volver">${ICON_ATRAS}</button><h1>${esc(tituloD)}</h1><span></span></header>`;
+const selPeriodo = () => `<div class="segm periodo" role="group" aria-label="Período">${[[7, '7 días'], [28, '4 semanas'], [0, 'Todo']].map(([v, t]) => `<button type="button" class="${periodo === v ? 'on' : ''}" data-periodo="${v}">${t}</button>`).join('')}</div>`;
+const hm = (h) => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+const horaDe = (t) => { const d = new Date(t); return d.getHours() + d.getMinutes() / 60; };
+const fmtHora = (x) => { const m = Math.round(((x % 24) + 24) % 24 * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+
 function vistaProgreso() {
+  if (detalle === 'peso') return detallePeso();
+  if (detalle === 'sueno') return detalleSueno();
+  if (detalle === 'ejercicios') return detalleEjercicios();
+  if (detalle === 'ejercicio') return detalleEjercicio();
+  if (detalle === 'tests') return detalleTests();
+  if (detalle === 'ajustes') return detalleAjustes();
+  const dISO = iso(hoy());
+  let h = `<header class="cab"><h1>Cuerpo</h1><button type="button" class="ico" data-detalle="ajustes" aria-label="Ajustes y backup"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></header>`;
+  h += selPeriodo();
+
+  // Peso
+  const pesos = Object.keys(DB.peso).filter((f) => f <= dISO && enPeriodo(f) && num(DB.peso[f]) != null).sort().map((f) => num(DB.peso[f]));
+  const sem = semanasPeso(dISO);
+  const aj = ajustePeso(dISO);
+  const ultPeso = sem.length ? sem[sem.length - 1].prom : pesos[pesos.length - 1];
+  h += `<button type="button" class="t tarjeta alta-c" style="background-color:var(--cuerpo)" data-detalle="peso">${ICON_IR}<span class="t-k">Peso · promedio de la semana</span>
+    ${pesos.length > 1 ? sparkline(pesos, P.tests.pesoObjetivo) : '<span class="t-u">Cargá tu peso en Hoy para ver la tendencia</span>'}
+    <span class="t-fila"><span>${ultPeso != null ? `<span class="t-n">${fmt(ultPeso)}</span><span class="t-u"> kg</span>` : '<span class="t-n">—</span>'}</span><span class="t-der">${esc(aj.corto || '')}</span></span></button>`;
+
+  // Sueño y pulso
+  const noches = Object.keys(DB.salud).filter((f) => f <= dISO && enPeriodo(f)).sort();
+  const horas = noches.map((f) => DB.salud[f].horas).filter((v) => v != null);
+  const fcrs = noches.map((f) => DB.salud[f].fcr).filter((v) => v != null);
+  const prom = (v) => v.reduce((a, b) => a + b, 0) / v.length;
+  h += `<div class="t-par">
+    <button type="button" class="t tarjeta media" style="background-color:var(--sueno)" data-detalle="sueno">${ICON_IR}<span class="t-k">Sueño</span>
+      ${horas.length ? `<span class="mini-barras">${horas.slice(-7).map((v) => `<i style="height:${Math.max(4, Math.min(34, (v / 9) * 34))}px"></i>`).join('')}</span>` : ''}
+      <span>${horas.length ? `<span class="t-n">${hm(prom(horas))}</span><span class="t-u"> h prom.</span>` : '<span class="t-n">—</span>'}</span></button>
+    <button type="button" class="t tarjeta media" style="background-color:var(--pulso)" data-detalle="sueno">${ICON_IR}<span class="t-k">Pulso</span>
+      ${fcrs.length ? miniPuntos(fcrs.slice(-7)) : ''}
+      <span>${fcrs.length ? `<span class="t-n">${Math.round(prom(fcrs))}</span><span class="t-u"> lpm prom.</span>` : '<span class="t-n">—</span>'}</span></button>
+  </div>`;
+  const conHorario = noches.filter((f) => DB.salud[f].inicio && DB.salud[f].fin);
+  if (conHorario.length) {
+    const a = conHorario.map((f) => { let x = horaDe(DB.salud[f].inicio); if (x < 12) x += 24; return x; });
+    const b = conHorario.map((f) => horaDe(DB.salud[f].fin));
+    const media = prom(a);
+    const desv = Math.sqrt(prom(a.map((x) => (x - media) ** 2)));
+    h += `<button type="button" class="t tarjeta chica-t" style="background-color:var(--sueno)" data-detalle="sueno">${ICON_IR}<span class="t-k">Horario de sueño</span>
+      <span class="t-fila"><span><span class="t-n m">${fmtHora(media)}</span><span class="t-u"> → </span><span class="t-n m">${fmtHora(prom(b))}</span></span><span class="t-der">±${fmtMin(Math.round(desv * 60))}</span></span></button>`;
+  }
+
+  // Ejercicios
+  const series = seriesEjercicios();
+  const ids = Object.keys(series).sort((x, y) => series[y].length - series[x].length);
+  h += `<section class="t tarjeta ejs" style="background-color:var(--entreno)"><span class="t-k">Ejercicios · mejor peso</span>`;
+  if (!ids.length) h += '<span class="t-u">Cuando registres pesos, acá ves cómo evoluciona cada uno.</span>';
+  ids.slice(0, 3).forEach((id) => {
+    const pts = series[id];
+    const mejor = Math.max(...pts.map((p) => p.v));
+    const dl = mejor - pts[0].v;
+    h += `<button type="button" class="fr" data-ej="${esc(id)}"><span>${esc(nombreEj(id))}</span><span class="fr-d"><span class="v">${fmt(mejor)} kg${dl > 0 ? ` · ▲ ${fmt(dl)}` : ''}</span>${CHEV}</span></button>`;
+  });
+  if (ids.length) h += `<button type="button" class="fr" data-detalle="ejercicios"><b>Ver los ${ids.length} ejercicios</b>${CHEV}</button>`;
+  h += '</section>';
+
+  // Tests
+  const prox = P.tests.fechas.find((t) => t.fecha >= dISO);
+  const ultT = [...P.tests.fechas].reverse().find((t) => t.fecha <= dISO);
+  const dias = prox ? Math.round((parseISO(prox.fecha) - parseISO(dISO)) / 864e5) : null;
+  h += `<button type="button" class="t tarjeta chica-t" style="background-color:var(--cuerpo)" data-detalle="tests">${ICON_IR}<span class="t-k">Tests cada 4 semanas</span>
+    <span class="t-fila"><span>${prox ? `<span class="t-n m">${esc(prox.nombre.replace('de ', ''))}</span><span class="t-u"> · ${dias === 0 ? 'hoy' : `en ${dias} días`}</span>` : '<span class="t-n m">Terminados</span>'}</span><span class="t-der">${ultT ? `${esc(ultT.nombre)} ${testCompleto(ultT.id) ? '✓' : '· pendiente'}` : ''}</span></span></button>`;
+  return h;
+}
+
+// --- mini gráficos de las tarjetas ---
+function sparkline(vals, banda) {
+  const W = 300, H = 60;
+  let min = Math.min(...vals, ...(banda || []));
+  let max = Math.max(...vals, ...(banda || []));
+  if (min === max) { min -= 1; max += 1; }
+  const y = (v) => 6 + ((max - v) / (max - min)) * (H - 12);
+  const x = (i) => (i / (vals.length - 1)) * (W - 8) + 4;
+  const pts = vals.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" class="spark" aria-hidden="true">${banda ? `<rect x="0" y="${y(banda[1])}" width="${W}" height="${y(banda[0]) - y(banda[1])}" fill="rgba(166,207,184,.18)"/>` : ''}<polyline points="${pts}" fill="none" stroke="#F4F3EF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${x(vals.length - 1)}" cy="${y(vals[vals.length - 1])}" r="5" fill="#E7FE55"/></svg>`;
+}
+function miniPuntos(vals) {
+  const min = Math.min(...vals) - 1;
+  const max = Math.max(...vals) + 1;
+  return `<span class="mini-puntos">${vals.map((v) => `<i style="margin-top:${Math.round(((max - v) / (max - min)) * 24) - 12}px"></i>`).join('')}</span>`;
+}
+
+// --- Peso ---
+function detallePeso() {
+  const dISO = iso(hoy());
+  const pts = Object.keys(DB.peso).filter((f) => f <= dISO && enPeriodo(f) && num(DB.peso[f]) != null).sort().map((f) => ({ f, v: num(DB.peso[f]) }));
+  const aj = ajustePeso(dISO);
+  let h = cabDetalle('Peso') + selPeriodo();
+  const ult = pts[pts.length - 1];
+  h += `<section class="t alta heroe-det" style="background-color:var(--cuerpo)"><span class="t-k">${ult ? `Último pesaje · ${fechaCorta(ult.f)}` : 'Peso en ayunas'}</span>
+    <span class="heroe-n"><span class="dot">${ult ? fmt(ult.v) : '—'}</span><span class="heroe-u">kg</span></span>
+    <span class="t-u">Objetivo: ${P.tests.pesoObjetivo.join('–')} kg en enero</span>`;
+  if (pts.length) {
+    const media = pts.map((p) => { const desde = iso(addDays(parseISO(p.f), -6)); const v = pts.filter((q) => q.f >= desde && q.f <= p.f).map((q) => q.v); return { f: p.f, v: v.reduce((a, b) => a + b, 0) / v.length }; });
+    h += graficoSerie(pts, { linea: media, banda: P.tests.pesoObjetivo, unidad: 'kg' });
+  }
+  h += `<span class="sugerencia${aj.tipo === 'warn' ? ' aviso-s' : ''}">${esc(aj.txt)}</span></section>`;
+  h += `<p class="k guia-t">Reglas de ajuste</p><div class="guia lista-reglas">${P.reglas.ajuste.map((x) => `<p>${esc(x)}</p>`).join('')}</div>`;
+  if (pts.length) h += `<p class="k guia-t">Pesajes</p><div class="guia">${pts.slice().reverse().slice(0, 14).map((p) => `<div class="fr"><span>${esc(cap(fechaMedia(parseISO(p.f))))}</span><span class="v">${fmt(p.v)} kg</span></div>`).join('')}</div>`;
+  return h;
+}
+
+// --- Sueño y pulso ---
+function detalleSueno() {
+  const dISO = iso(hoy());
+  const noches = Object.keys(DB.salud).filter((f) => f <= dISO && enPeriodo(f)).sort();
+  const s = DB.salud[dISO] || DB.salud[noches[noches.length - 1]] || {};
+  const fS = DB.salud[dISO] ? dISO : noches[noches.length - 1];
+  let h = cabDetalle('Sueño y pulso') + selPeriodo();
+  if (!noches.length) return `${h}<section class="c vacio-det"><p>Todavía no hay datos del Garmin. Traelos desde Hoy con "Traer" y "Pegar".</p></section>`;
+  const conH = noches.filter((f) => DB.salud[f].horas != null);
+  // sueño
+  h += `<section class="t alta heroe-det" style="background-color:var(--sueno)"><span class="t-k">${fS === dISO ? 'Anoche' : `Noche al ${fechaCorta(fS)}`}</span>
+    <span class="heroe-n"><span class="dot">${s.horas != null ? hm(s.horas) : '—'}</span></span>
+    <span class="t-u">horas dormido · meta 7:30–8:00</span>
+    ${conH.length ? barrasSueno(conH.map((f) => DB.salud[f].horas)) : ''}
+    ${s.profundo != null ? `<div class="chips3"><span class="chip3"><span class="k">Profundo</span><b>${fmtMin(s.profundo)}</b></span><span class="chip3"><span class="k">REM</span><b>${fmtMin(s.rem)}</b></span><span class="chip3"><span class="k">Despierto</span><b>${fmtMin(s.despierto)}</b></span></div>` : ''}
+  </section>`;
+  // pulso
+  const conF = noches.filter((f) => DB.salud[f].fcr != null);
+  if (conF.length) {
+    const r = recuperacion(fS);
+    const base = r?.base;
+    const vals = conF.map((f) => DB.salud[f].fcr);
+    const hoyF = DB.salud[fS]?.fcr;
+    const dif = base != null && hoyF != null ? hoyF - base : null;
+    h += `<section class="t heroe-det izq" style="background-color:var(--pulso)">
+      <span class="t-fila"><span class="t-k">Pulso en reposo</span><span class="t-der">${base != null ? `tu promedio: ${Math.round(base)}` : 'necesita 3 días para el promedio'}</span></span>
+      ${puntosPulso(vals, base)}
+      <span class="t-fila"><span><span class="t-n">${hoyF ?? '—'}</span><span class="t-u"> lpm hoy</span></span><span class="t-der">${dif != null ? `${dif >= 0 ? '+' : ''}${fmt(dif, 0)} sobre tu promedio<br>${dif >= 8 ? 'alto: día suave' : dif >= 4 ? 'algo alto' : 'normal'}` : ''}</span></span>
+    </section>`;
+  }
+  // horario
+  h += graficoHorario(noches.filter((f) => DB.salud[f].inicio && DB.salud[f].fin).slice(-14));
+  return h;
+}
+function barrasSueno(vals) {
+  const W = 300, H = 120, top = 9.5;
+  const n = Math.min(vals.length, 28);
+  const v = vals.slice(-n);
+  const paso = W / n;
+  const ancho = Math.max(4, Math.min(14, paso * 0.66));
+  const y = (h) => H - (Math.min(h, top) / top) * H;
+  return `<svg viewBox="0 0 ${W} ${H}" class="barras" role="img" aria-label="Horas dormido por noche"><rect x="0" y="${y(8)}" width="${W}" height="${y(7.5) - y(8)}" fill="rgba(231,254,85,.14)"/>${v.map((h, i) => `<rect x="${i * paso + (paso - ancho) / 2}" y="${y(h)}" width="${ancho}" height="${H - y(h)}" rx="4" fill="${i === v.length - 1 ? '#E7FE55' : 'rgba(244,243,239,.55)'}"/>`).join('')}</svg>`;
+}
+function puntosPulso(vals, base) {
+  const W = 300, H = 70;
+  const v = vals.slice(-28);
+  let min = Math.min(...v, base ?? Infinity) - 2;
+  let max = Math.max(...v, base ?? -Infinity) + 2;
+  const y = (x) => 6 + ((max - x) / (max - min)) * (H - 12);
+  const x = (i) => (v.length === 1 ? W / 2 : 6 + (i / (v.length - 1)) * (W - 12));
+  return `<svg viewBox="0 0 ${W} ${H}" class="barras" role="img" aria-label="Pulso en reposo por día">${base != null ? `<line x1="0" y1="${y(base)}" x2="${W}" y2="${y(base)}" stroke="rgba(244,243,239,.35)" stroke-dasharray="3 5"/>` : ''}${v.map((p, i) => (i === v.length - 1 ? `<circle cx="${x(i)}" cy="${y(p)}" r="5.5" fill="#E7FE55"/>` : `<circle cx="${x(i)}" cy="${y(p)}" r="3.5" fill="#F4F3EF"/>`)).join('')}</svg>`;
+}
+
+// --- Ejercicios ---
+function seriesEjercicios() {
+  const series = {};
+  for (const f of Object.keys(DB.logs).sort()) {
+    for (const [id, e] of Object.entries(DB.logs[f])) {
+      const w = pesoMax(e);
+      if (w == null || !(e.d || []).some(Boolean)) continue;
+      (series[id] ||= []).push({ f, v: w, e });
+    }
+  }
+  return series;
+}
+const nombreEj = (id) => { const n = nombresEjercicios(); const [base, casa] = id.split('@'); return `${n[base] || base}${casa ? ' (casa)' : ''}`; };
+// Definición del plan para un ejercicio registrado (para sugerir el próximo peso y la técnica).
+function ejDef(logId) {
+  const [base, casa] = logId.split('@');
+  for (const k in P.sesiones) {
+    for (const it of P.sesiones[k].items) {
+      const v = it.id === base ? it : it.casa?.id === base ? { ...it, ...it.casa } : it.alt?.id === base ? { ...it, ...it.alt } : null;
+      if (v) return { ...v, id: base, logId, enCasa: !!casa };
+    }
+  }
+  return { id: base, logId, nombre: base, enCasa: !!casa };
+}
+function detalleEjercicios() {
+  const series = seriesEjercicios();
+  const ids = Object.keys(series).sort((a, b) => nombreEj(a).localeCompare(nombreEj(b)));
+  let h = cabDetalle('Ejercicios');
+  h += `<div class="guia">${ids.map((id) => `<button type="button" class="fr" data-ej="${esc(id)}"><span>${esc(nombreEj(id))}</span><span class="fr-d"><span class="v">${fmt(Math.max(...series[id].map((p) => p.v)))} kg · ${series[id].length} ses.</span>${CHEV}</span></button>`).join('') || '<p class="mut">Todavía no hay pesos registrados.</p>'}</div>`;
+  return h;
+}
+function detalleEjercicio() {
+  const series = seriesEjercicios();
+  const base = ejSel.split('@')[0];
+  const variantes = [base, `${base}@casa`].filter((id) => series[id]);
+  const id = variantes.includes(ejLugar) ? ejLugar : series[ejSel] ? ejSel : variantes[0] || ejSel;
+  const x = ejDef(id);
+  const pts = series[id] || [];
+  let h = cabDetalle(nombreEj(base));
+  if (variantes.length > 1) h += `<div class="segm" role="group" aria-label="Versión">${variantes.map((v) => `<button type="button" class="${v === id ? 'on' : ''}" data-ej-lugar="${esc(v)}">${v.includes('@casa') ? 'Casa' : 'Gimnasio'}</button>`).join('')}</div>`;
+  if (!pts.length) return `${h}<section class="c vacio-det"><p>Todavía no hay pesos registrados para este ejercicio.</p></section>`;
+  const mejor = Math.max(...pts.map((p) => p.v));
+  const dl = mejor - pts[0].v;
+  const ult = pts[pts.length - 1];
+  const sub = evaluarSubida(x, ult.e);
+  const tope = topeReps(x);
+  const prox = sub ? (sub.w ? `Próxima vez: ${sub.w} kg.` : `Próxima vez: ${sub.txt}`) : tope ? `Para subir: completá ${ult.e.n || x.series || ''} × ${tope} con ${fmt(pesoMax(ult.e))} kg.` : '';
+  h += `<section class="t alta heroe-det" style="background-color:var(--entreno)"><span class="t-k">Mejor peso</span>
+    <span class="heroe-n"><span class="dot">${fmt(mejor)}</span><span class="heroe-u">kg</span></span>
+    <span class="t-u">${dl > 0 ? `▲ ${fmt(dl)} kg desde el ${fechaCorta(pts[0].f)}` : `desde el ${fechaCorta(pts[0].f)}`}</span>
+    ${pts.length > 1 ? graficoSerie(pts, { unidad: 'kg' }) : ''}
+    ${prox ? `<span class="sugerencia">${esc(prox)}</span>` : ''}
+  </section>`;
+  h += `<p class="k guia-t">Sesiones</p><div class="guia">${pts.slice().reverse().map((p) => `<button type="button" class="fr" data-ver-dia-ir="${p.f}"><span>${esc(cap(fechaMedia(parseISO(p.f))))}</span><span class="fr-d"><span class="v">${p.e.n || ''} × ${fmt(p.v)} kg${p.e.r ? ` · ${p.e.r.filter(Boolean).join('-')}` : ''}</span>${CHEV}</span></button>`).join('')}</div>`;
+  const tec = tecDe(x);
+  if (tec) h += `<div class="guia" style="margin-top:10px"><details class="guia-f"><summary><span>Técnica y video</span><span class="fr-d">${CHEV}</span></summary><div class="guia-c">${tecHTML(tec)}</div></details></div>`;
+  return h;
+}
+
+// --- Tests ---
+function detalleTests() {
   const dISO = iso(hoy());
   if (!testSel) {
     const pasados = P.tests.fechas.filter((t) => t.fecha <= dISO);
@@ -1108,51 +1338,45 @@ function vistaProgreso() {
   }
   const t = DB.tests[testSel] || {};
   const tInfo = P.tests.fechas.find((x) => x.id === testSel);
-
-  let h = '<header class="top"><h1 class="big">Cuerpo</h1></header>';
-
-  h += seccionPeso(dISO);
-  h += seccionSalud(dISO);
-  h += seccionEjercicios();
-
-  h += `<p class="k sec">Tests cada 4 semanas</p><div class="segmentos">${P.tests.fechas.map((x) => `<button type="button" class="${x.id === testSel ? 'on' : ''}" data-test="${x.id}">${esc(x.nombre)}${testCompleto(x.id) ? ' ✓' : ''}</button>`).join('')}</div>`;
-
-  h += `<section class="card tests"><h3>Test · ${esc(tInfo.nombre)} <small>${fechaCorta(tInfo.fecha)}</small></h3>`;
+  let h = cabDetalle('Tests');
+  h += `<div class="segm">${P.tests.fechas.map((x) => `<button type="button" class="${x.id === testSel ? 'on' : ''}" data-test="${x.id}">${esc(x.nombre.replace('de ', ''))}${testCompleto(x.id) ? ' ✓' : ''}</button>`).join('')}</div>`;
+  h += `<section class="c tests"><h3>Test · ${esc(tInfo.nombre)} <small>${fechaCorta(tInfo.fecha)}</small></h3>`;
   for (const c of P.tests.campos) {
     if (c.tres) {
-      const prom = valorTest(testSel, 'peso');
+      const promP = valorTest(testSel, 'peso');
       h += `<div class="campo"><label>${esc(c.nombre)} <small>${esc(c.nota)}</small></label>
         <div class="tres">${[1, 2, 3].map((i) => `<input type="text" inputmode="decimal" data-tc="peso${i}" value="${esc(t['peso' + i] || '')}" placeholder="Día ${i}" aria-label="Peso día ${i}">`).join('')}</div>
-        <p class="prom">Promedio: <b id="prom-peso">${prom == null ? '—' : fmt(prom) + ' kg'}</b></p></div>`;
+        <p class="prom">Promedio: <b id="prom-peso">${promP == null ? '—' : fmt(promP) + ' kg'}</b></p></div>`;
     } else {
       h += `<div class="campo fila"><label>${esc(c.nombre)} <small>${esc(c.nota)}</small></label>
         <div class="kg-box"><input type="text" inputmode="decimal" data-tc="${c.id}" value="${esc(t[c.id] || '')}" aria-label="${esc(c.nombre)}"><span>${esc(c.unidad)}</span></div></div>`;
     }
   }
-  h += `<button type="button" class="check-foto${t.foto ? ' on' : ''}" data-accion="foto">${t.foto ? '✓' : '○'} Foto de frente y de costado <small>(la foto queda en tu galería, no en la app)</small></button></section>`;
-
-  h += `<section class="card"><h3>Evolución</h3>
+  h += `<button type="button" class="check-foto${t.foto ? ' on' : ''}" data-accion="foto">${t.foto ? '✓' : '○'} Foto de frente y de costado</button><p class="mut chico">La foto queda en tu galería, no en la app.</p></section>`;
+  h += `<p class="k guia-t">Evolución</p><section class="c">
     <div class="segmentos chico">${P.tests.campos.map((c) => `<button type="button" class="${c.id === campoSel ? 'on' : ''}" data-campo="${c.id}">${esc(c.nombre)}</button>`).join('')}</div>
     <div id="grafico">${grafico(campoSel)}</div></section>`;
+  return h;
+}
 
+// --- Ajustes y backup ---
+function detalleAjustes() {
   const nc = nubeCfg();
   const resp = localStorage.getItem(`${KEY}.respaldo.fecha`);
-  h += `<section class="card"><h3>Backup</h3>
-    <p class="k">Copia en la nube</p>
+  let h = cabDetalle('Ajustes y backup');
+  h += `<p class="k guia-t">Copia en la nube</p><section class="c">
     ${nc.token ? `<p class="meta">${nc.ultima ? `Última copia ${hace(nc.ultima)}.` : 'Todavía no se subió ninguna copia.'}${nc.error ? ` <span class="warn">Último intento falló (${esc(nc.error)}).</span>` : ''} Se sube sola cuando hay cambios.</p>
-      <div class="botonera"><button type="button" class="btn" data-accion="nube-subir">Subir ahora</button><button type="button" class="btn sec" data-accion="nube-traer">Traer de la nube</button></div>
+      <div class="dos"><button type="button" class="secund" data-accion="nube-subir">Subir ahora</button><button type="button" class="secund" data-accion="nube-traer">Traer de la nube</button></div>
       <button type="button" class="link chico" data-accion="nube-salir">Desconectar</button>`
     : `<p class="meta">Guarda una copia automática en tu repo privado de GitHub. Pegá la clave una sola vez.</p>
       <label class="cn ancho"><span>Clave de GitHub</span><input id="nube-token" type="password" autocomplete="off" placeholder="github_pat_…"></label>
-      <button type="button" class="btn" data-accion="nube-conectar">Conectar</button>`}
-    <p class="k" style="margin-top:16px">Archivo</p>
+      <button type="button" class="secund" data-accion="nube-conectar">Conectar</button>`}
+  </section>
+  <p class="k guia-t">Archivo</p><section class="c">
     <p class="meta">Exportá un backup cada tanto y guardalo en Archivos o mandátelo por mail.</p>
-    <div class="botonera">
-      <button type="button" class="btn" data-accion="exportar">Exportar</button>
-      <button type="button" class="btn sec" data-accion="importar">Importar</button>
-    </div>
+    <div class="dos"><button type="button" class="secund" data-accion="exportar">Exportar</button><button type="button" class="secund" data-accion="importar">Importar</button></div>
     <input type="file" id="archivo" accept="application/json,.json" hidden>
-    ${resp ? `<p class="meta" style="margin-top:14px">Copia local automática: ${esc(new Date(resp).toLocaleString('es-AR', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }))}. <button type="button" class="link chico" data-accion="restaurar-local">Restaurar</button></p>` : ''}
+    ${resp ? `<p class="meta" style="margin-top:12px">Copia local automática: ${esc(new Date(resp).toLocaleString('es-AR', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }))}. <button type="button" class="link chico" data-accion="restaurar-local">Restaurar</button></p>` : ''}
   </section>`;
   return h;
 }
@@ -1171,45 +1395,16 @@ function semanasPeso(hastaISO) {
 // Aplica las reglas de ajuste del plan con los promedios semanales.
 function ajustePeso(dISO) {
   const sem = semanasPeso(dISO).filter((x) => x.n >= 3);
-  if (sem.length < 2) return { txt: 'Pesate 3 mañanas por semana: con 2 semanas te digo si vas en ritmo.', tipo: '' };
+  if (sem.length < 2) return { txt: 'Pesate 3 mañanas por semana: con 2 semanas te digo si vas en ritmo.', tipo: '', corto: 'Pesate 3 veces\npor semana' };
   const d1 = sem[sem.length - 1].prom - sem[sem.length - 2].prom;
   const d2 = sem.length >= 3 ? sem[sem.length - 2].prom - sem[sem.length - 3].prom : null;
-  if (d1 < -0.5) return { txt: `Bajaste ${fmt(-d1)} kg en la última semana (más de 0,5): subí 150 kcal.`, tipo: 'warn' };
-  if (d2 != null && Math.abs(d1) < 0.15 && Math.abs(d2) < 0.15) return { txt: 'Peso sin moverse 2 semanas: bajá 150 kcal.', tipo: 'warn' };
-  if (d1 > 0.15) return { txt: `Subiste ${fmt(d1)} kg en la última semana. Revisá salidas y comida libre.`, tipo: 'warn' };
-  if (d1 <= -0.2) return { txt: `Vas en ritmo: ${fmt(-d1)} kg menos que la semana anterior.`, tipo: 'ok' };
-  return { txt: `Última semana: ${d1 > 0 ? '+' : ''}${fmt(d1)} kg. El objetivo es bajar 0,25–0,4 por semana.`, tipo: '' };
+  const vs = `${d1 > 0 ? '+' : '−'}${fmt(Math.abs(d1))} kg vs semana anterior`;
+  if (d1 < -0.5) return { txt: `Bajaste ${fmt(-d1)} kg en la última semana (más de 0,5): subí 150 kcal.`, tipo: 'warn', corto: `Subí 150 kcal\n${vs}` };
+  if (d2 != null && Math.abs(d1) < 0.15 && Math.abs(d2) < 0.15) return { txt: 'Peso sin moverse 2 semanas: bajá 150 kcal.', tipo: 'warn', corto: 'Sin moverse 2 semanas\nBajá 150 kcal' };
+  if (d1 > 0.15) return { txt: `Subiste ${fmt(d1)} kg en la última semana. Revisá salidas y comida libre.`, tipo: 'warn', corto: `Subiendo\n${vs}` };
+  if (d1 <= -0.2) return { txt: `Vas en ritmo: ${fmt(-d1)} kg menos que la semana anterior.`, tipo: 'ok', corto: `Vas en ritmo\n${vs}` };
+  return { txt: `Última semana: ${d1 > 0 ? '+' : ''}${fmt(d1)} kg. El objetivo es bajar 0,25–0,4 por semana.`, tipo: '', corto: vs };
 }
-function seccionPeso(dISO) {
-  const pts = Object.keys(DB.peso).filter((f) => f <= dISO && num(DB.peso[f]) != null).sort().map((f) => ({ f, v: num(DB.peso[f]) }));
-  const sem = semanasPeso(dISO);
-  const aj = ajustePeso(dISO);
-  const ult = sem[sem.length - 1];
-  let h = `<section class="c"><div class="fila-k"><span class="k">Peso</span>${ult ? `<span class="k">prom. semana <b class="big blanco">${fmt(ult.prom)} kg</b></span>` : ''}</div>`;
-  if (!pts.length) return `${h}<p class="meta vacio-g">Cargá tu peso en ayunas en Inicio y acá ves la tendencia.</p></section>`;
-  // media móvil de 7 días para ver la tendencia sin el ruido diario
-  const media = pts.map((p) => {
-    const desde = iso(addDays(parseISO(p.f), -6));
-    return { f: p.f, v: prom(pts.filter((q) => q.f >= desde && q.f <= p.f).map((q) => q.v)) };
-  });
-  h += graficoSerie(pts, { linea: media, banda: P.tests.pesoObjetivo, unidad: 'kg' });
-  h += `<p class="reco" style="--z:${aj.tipo === 'warn' ? 'var(--warn)' : aj.tipo === 'ok' ? 'var(--ok)' : 'var(--line)'}">${esc(aj.txt)}</p></section>`;
-  return h;
-}
-
-// ---------- sueño y pulso (Garmin) ----------
-function seccionSalud(dISO) {
-  const fechas = Object.keys(DB.salud).filter((f) => f <= dISO).sort();
-  if (!fechas.length) return '';
-  const fcr = fechas.filter((f) => DB.salud[f].fcr != null).map((f) => ({ f, v: DB.salud[f].fcr }));
-  const sue = fechas.filter((f) => DB.salud[f].horas != null).map((f) => ({ f, v: DB.salud[f].horas }));
-  let h = '';
-  if (fcr.length) h += `<section class="c"><div class="fila-k"><span class="k">Pulso en reposo</span><span class="k">últ. <b class="big blanco">${fcr[fcr.length - 1].v}</b></span></div>${graficoSerie(fcr, { unidad: 'lpm' })}<p class="meta">Si amanece varios latidos arriba de tu promedio, es señal de cansancio o de que algo se está incubando.</p></section>`;
-  if (sue.length) h += `<section class="c"><div class="fila-k"><span class="k">Horas dormido</span><span class="k">últ. <b class="big blanco">${fmtHoras(sue[sue.length - 1].v)}</b></span></div>${graficoSerie(sue, { unidad: 'h', banda: [7.5, 8] })}</section>`;
-  h += graficoHorario(fechas.filter((f) => DB.salud[f].inicio && DB.salud[f].fin).slice(-14));
-  return h;
-}
-
 // Horario de sueño: una barra por noche, de la hora en que te dormiste a la que te despertaste.
 function graficoHorario(fechas) {
   if (!fechas.length) return '';
@@ -1225,7 +1420,7 @@ function graficoHorario(fechas) {
   for (let v = Math.ceil(lo / 2) * 2; v <= hi; v += 2) svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="g-grid"/><text x="${L - 6}" y="${y(v) + 4}" class="g-eje" text-anchor="end">${hora(v)}</text>`;
   noches.forEach((n, i) => {
     const x = L + i * paso + paso * 0.2;
-    svg += `<rect x="${x}" y="${y(n.a)}" width="${paso * 0.6}" height="${Math.max(2, y(n.b) - y(n.a))}" rx="3" class="g-noche"/>`;
+    svg += `<rect x="${x}" y="${y(n.a)}" width="${paso * 0.6}" height="${Math.max(2, y(n.b) - y(n.a))}" rx="${Math.min(6, paso * 0.3)}" class="g-noche${i === noches.length - 1 ? ' ult' : ''}"/>`;
   });
   svg += `<text x="${L}" y="${H - 6}" class="g-eje">${fechaCorta(noches[0].f)}</text><text x="${W - R}" y="${H - 6}" class="g-eje" text-anchor="end">${fechaCorta(noches[noches.length - 1].f)}</text></svg>`;
   const media = (v) => v.reduce((a, b) => a + b, 0) / v.length;
@@ -1233,7 +1428,7 @@ function graficoHorario(fechas) {
   const dA = desvio(noches.map((n) => n.a));
   const txt = noches.length < 3 ? 'Con unas noches más te muestro cuánto varía tu horario.'
     : `Te dormís en promedio a las ${hora(media(noches.map((n) => n.a)))} y te despertás a las ${hora(media(noches.map((n) => n.b)))}. Variación: ±${fmtMin(Math.round(dA * 60))}${dA > 1 ? ' (bastante; acercar los horarios suele mejorar cómo te sentís)' : ''}.`;
-  return `<section class="c"><span class="k">Horario de sueño</span>${svg}<p class="meta">${esc(txt)}</p></section>`;
+  return `<section class="c horario"><span class="t-fila"><span class="t-k">Horario de sueño</span><span class="k">${noches.length >= 3 ? `±${fmtMin(Math.round(dA * 60))}` : ''}</span></span>${svg}<p class="meta">${esc(txt)}</p></section>`;
 }
 
 // ---------- historial por ejercicio ----------
@@ -1249,28 +1444,6 @@ function nombresEjercicios() {
   }
   return n;
 }
-function seccionEjercicios() {
-  const nombres = nombresEjercicios();
-  const series = {};
-  for (const f of Object.keys(DB.logs).sort()) {
-    for (const [id, e] of Object.entries(DB.logs[f])) {
-      const w = pesoMax(e);
-      if (w == null || !(e.d || []).some(Boolean)) continue;
-      (series[id] ||= []).push({ f, v: w, e });
-    }
-  }
-  const ids = Object.keys(series);
-  let h = '<section class="c"><span class="k">Ejercicios</span>';
-  if (!ids.length) return `${h}<p class="meta vacio-g">Cuando registres pesos en los entrenamientos, acá ves cómo evoluciona cada ejercicio.</p></section>`;
-  if (!ejSel || !series[ejSel]) ejSel = ids.sort((a, b) => series[b].length - series[a].length)[0];
-  const nom = (id) => { const [base, casa] = id.split('@'); return `${nombres[base] || base}${casa ? ' (casa)' : ''}`; };
-  h += `<select id="ej-sel" class="sel">${ids.sort((a, b) => nom(a).localeCompare(nom(b))).map((id) => `<option value="${esc(id)}"${id === ejSel ? ' selected' : ''}>${esc(nom(id))}</option>`).join('')}</select>`;
-  const pts = series[ejSel];
-  h += graficoSerie(pts, { unidad: 'kg' });
-  h += `<ul class="res-lista">${pts.slice(-5).reverse().map((p) => `<li><span>${fechaCorta(p.f)}</span><span class="mut">${fmt(p.v)} kg · ${(p.e.r || []).filter(Boolean).join('-') || '—'} reps</span></li>`).join('')}</ul></section>`;
-  return h;
-}
-
 // Gráfico de una serie de fechas: puntos, línea opcional (tendencia) y banda objetivo.
 function graficoSerie(pts, { linea, banda, unidad } = {}) {
   const W = 340, H = 170, L = 38, R = 14, T = 16, B = 24;
@@ -1295,7 +1468,7 @@ function graficoSerie(pts, { linea, banda, unidad } = {}) {
   if (pts.length > 1) s += `<text x="${W - R}" y="${H - 6}" class="g-eje" text-anchor="end">${fechaCorta(pts[pts.length - 1].f)}</text>`;
   const ln = linea || (pts.length > 1 ? pts : null);
   if (ln && ln.length > 1) s += `<polyline points="${ln.map((p) => `${x(p.f)},${y(p.v)}`).join(' ')}" class="g-linea"/>`;
-  pts.forEach((p) => { s += `<circle cx="${x(p.f)}" cy="${y(p.v)}" r="${linea ? 2.5 : 4}" class="${linea ? 'g-dia' : 'g-punto'}"/>`; });
+  pts.forEach((p, i) => { s += i === pts.length - 1 ? `<circle cx="${x(p.f)}" cy="${y(p.v)}" r="5.5" class="g-ult"/>` : `<circle cx="${x(p.f)}" cy="${y(p.v)}" r="${linea ? 2.5 : 4}" class="${linea ? 'g-dia' : 'g-punto'}"/>`; });
   const ultimo = pts[pts.length - 1];
   s += `<text x="${Math.min(x(ultimo.f), W - R - 14)}" y="${y(ultimo.v) - 8}" class="g-val" text-anchor="middle">${fmt(ultimo.v)}</text>`;
   return `${s}</svg>`;
@@ -1610,7 +1783,7 @@ document.addEventListener('click', (ev) => {
   if (el.dataset.tab) {
     propuesta = null;
     // tocar una pestaña de la barra vuelve a hoy
-    if (el.closest('.nav')) { diaVer = null; comidaDia = null; semanaVista = 0; resumenDia = null; }
+    if (el.closest('.nav')) { diaVer = null; comidaDia = null; semanaVista = 0; resumenDia = null; detalle = null; volverA = null; }
     return render(el.dataset.tab);
   }
 
@@ -1735,7 +1908,25 @@ document.addEventListener('click', (ev) => {
   }
   if (el.dataset.resumen) { resumenDia = el.dataset.resumen; return render('resumen'); }
   if (el.dataset.cambiarDia) { diaAbierto = +el.dataset.cambiarDia; return render('semana'); }
-  if (el.dataset.ej) { ejSel = el.dataset.ej; return render('progreso'); }
+  if (el.dataset.ej || el.dataset.historial) {
+    ejSel = el.dataset.ej || el.dataset.historial;
+    ejLugar = null;
+    volverA = tab === 'progreso' ? { tab: 'progreso', detalle } : { tab };
+    detalle = 'ejercicio';
+    return render('progreso');
+  }
+  if (el.dataset.ejLugar) { ejLugar = el.dataset.ejLugar; return render('progreso', true); }
+  if (el.dataset.detalle) {
+    volverA = tab === 'progreso' ? { tab: 'progreso', detalle: detalle } : { tab };
+    detalle = el.dataset.detalle;
+    return render('progreso');
+  }
+  if (el.dataset.periodo) { periodo = +el.dataset.periodo; return render('progreso', true); }
+  if (el.dataset.verDiaIr) {
+    diaVer = el.dataset.verDiaIr;
+    semanaVista = Math.min(0, Math.round((parseISO(iso(lunesDe(parseISO(diaVer)))) - parseISO(iso(lunesDe(hoy())))) / (7 * 864e5)));
+    return render('inicio');
+  }
   if (el.dataset.ignorarPadel) { DB.garmin.ignorados.push(el.dataset.ignorarPadel); save(); return render('inicio', true); }
   if (el.dataset.poner) {
     const [f, k] = el.dataset.poner.split('|');
@@ -1765,6 +1956,14 @@ document.addEventListener('click', (ev) => {
     resumenDia = null;
     if (ent) { ent.fin = Date.now(); save(); setTimeout(() => subirNube(false), 500); }
     return render('resumen');
+  }
+  if (acc === 'det-volver') {
+    const v = volverA || { tab: 'progreso', detalle: null };
+    volverA = null;
+    detalle = v.tab === 'progreso' ? (v.detalle && v.detalle !== detalle ? v.detalle : null) : null;
+    render(v.tab);
+    if (v.tab === 'entreno') irAlActual();
+    return;
   }
   if (acc === 'resumen') { resumenDia = null; return render('resumen'); }
   if (acc === 'volver-resumen') { const f = resumenDia; resumenDia = null; diaVer = f; return render('inicio'); }

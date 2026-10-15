@@ -759,3 +759,47 @@ h3 { font-size: 17px; font-weight: 500; }
 .guia-f[open] .chev { transform: rotate(90deg); }
 .guia-c { padding: 0 0 14px; }
 .aviso-t { font-size: 13px; color: var(--aviso); }
+
+/* =====================================================================
+   REDISEÑO · etapa 4: Cuerpo y detalles
+   ===================================================================== */
+.ico { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--sup2); color: var(--txt); display: flex; align-items: center; justify-content: center; padding: 0; }
+.cab-det { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; margin: 4px 0 16px; }
+.cab-det h1 { margin: 0; text-align: center; font-size: 17px; font-weight: 500; }
+.segm.periodo, .segm { margin-bottom: 0; }
+.alta-c { min-height: 210px; margin-top: 14px; }
+.spark { width: 100%; height: 60px; display: block; }
+.t-fila { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; width: 100%; }
+.t-der { font-size: 14px; color: #D9D9DD; text-align: right; white-space: pre-line; }
+.tarjeta.media { min-height: 170px; }
+.mini-barras { display: flex; align-items: flex-end; gap: 5px; height: 34px; }
+.mini-barras i { width: 10px; border-radius: 3px; background: rgba(244,243,239,.55); }
+.mini-puntos { display: flex; align-items: center; justify-content: space-between; height: 34px; }
+.mini-puntos i { width: 6px; height: 6px; border-radius: 50%; background: var(--txt); }
+.chica-t { min-height: 118px; }
+.t-n.m { font-size: 28px; }
+.ejs { gap: 6px; justify-content: flex-start; min-height: 0; }
+.ejs .t-k { margin-bottom: 4px; }
+.ejs .fr b { font-weight: 500; }
+.heroe-det { display: flex; flex-direction: column; align-items: center; margin-top: 14px; gap: 0; }
+.heroe-det.izq { align-items: stretch; gap: 14px; }
+.heroe-det .heroe-n { margin-top: 20px; }
+.heroe-det .heroe-n .dot { font-size: 92px; }
+.heroe-det > .t-u { margin-top: 10px; }
+.heroe-det .svg-g, .barras { width: 100%; height: auto; margin-top: 18px; }
+.sugerencia { align-self: stretch; margin-top: 14px; padding: 12px 14px; border-radius: 16px; background: rgba(231,254,85,.1); color: var(--ahora); font-size: 14px; line-height: 1.35; }
+.sugerencia.aviso-s { background: rgba(245,185,74,.12); color: var(--aviso); }
+.chips3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; margin-top: 16px; }
+.chip3 { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 14px; background: rgba(244,243,239,.1); }
+.chip3 .k { color: #C9C9CE; }
+.chip3 b { font-size: 18px; font-weight: 400; }
+.horario { margin-top: 10px; border-radius: 28px; padding: 18px; }
+.g-noche { fill: var(--sueno); }
+.g-noche.ult { fill: var(--ahora); }
+.g-ult { fill: var(--ahora); }
+.lista-reglas { padding: 6px 16px; }
+.lista-reglas p { margin: 0; padding: 10px 0; border-top: 1px solid var(--linea); font-size: 14px; line-height: 1.4; }
+.lista-reglas p:first-child { border-top: 0; }
+.vacio-det { margin-top: 14px; }
+.tests h3 small { color: var(--mut); }
+.historial { margin-right: 18px; }

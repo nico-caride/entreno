@@ -1,5 +1,5 @@
 // Cambiá la versión si querés forzar que se borre el caché viejo.
-const CACHE = 'entreno-v16';
+const CACHE = 'entreno-v17';
 const ARCHIVOS = [
   './', './index.html', './styles.css', './app.js', './plan.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
@@ -26,7 +26,8 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const red = fetch(req).then((res) => {
+    // no-cache: siempre le pregunta al servidor si hay algo nuevo (no usa la copia vieja del navegador)
+    const red = fetch(req.mode === 'navigate' ? new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : new Request(req, { cache: 'no-cache' })).then((res) => {
       if (res.ok) cache.put(req, res.clone());
       return res;
     });

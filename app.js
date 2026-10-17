@@ -25,7 +25,7 @@ function load() {
   return blank();
 }
 let DB = load();
-const VERSION = 16; // subirla junto con el ?v= de index.html
+const VERSION = 17; // subirla junto con version.json, el ?v= de index.html y el CACHE de sw.js
 // Candado: si de golpe hay muchos menos registros que los guardados, no pisa los datos.
 const cantidad = (d) => ['logs', 'comida', 'salud', 'peso', 'entrenos'].reduce((a, k) => a + Object.keys(d?.[k] || {}).length, 0);
 let cantGuardada = cantidad(DB);
@@ -1398,6 +1398,7 @@ function detalleAjustes() {
   const nc = nubeCfg();
   const resp = localStorage.getItem(`${KEY}.respaldo.fecha`);
   let h = cabDetalle('Ajustes y backup');
+  h += `<p class="k guia-t">App</p><section class="c"><p class="meta">Versión ${VERSION}. Se actualiza sola al abrirla.</p><button type="button" class="secund" data-accion="buscar-version">Buscar actualización</button></section>`;
   h += `<p class="k guia-t">Copia en la nube</p><section class="c">
     ${nc.token ? `<p class="meta">${nc.ultima ? `Última copia ${hace(nc.ultima)}.` : 'Todavía no se subió ninguna copia.'}${nc.error ? ` <span class="warn">Último intento falló (${esc(nc.error)}).</span>` : ''} Se sube sola cuando hay cambios.</p>
       <div class="dos"><button type="button" class="secund" data-accion="nube-subir">Subir ahora</button><button type="button" class="secund" data-accion="nube-traer">Traer de la nube</button></div>
@@ -2046,6 +2047,8 @@ document.addEventListener('click', (ev) => {
     return;
   }
   if (acc === 'nube-subir') return subirNube(true);
+  if (acc === 'actualizar') return actualizarApp();
+  if (acc === 'buscar-version') return buscarVersion(true);
   if (acc === 'nube-salir') { if (confirm('¿Desconectar la copia en la nube? Tus datos quedan en el celular.')) { localStorage.removeItem(`${KEY}.nube`); render('progreso', true); } return; }
   if (acc === 'nube-traer') {
     ghFetch('GET').then(async (r) => {
@@ -2173,6 +2176,42 @@ document.addEventListener('change', (ev) => {
   if (ev.target.id === 'archivo' && ev.target.files[0]) importar(ev.target.files[0]);
 });
 
+// ---------- actualizaciones ----------
+// Al abrir o volver a la app, se fija si hay una versión publicada más nueva. Si no estás entrenando,
+// recarga sola; si estás en medio de una sesión, avisa para no cortarte.
+let avisoVersion = false;
+async function buscarVersion(manual) {
+  if (DEMO || location.protocol === 'file:') return;
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const { v } = await r.json();
+    if (!(v > VERSION)) { if (manual) toast('Ya tenés la última versión'); return; }
+    // Freno anti-loop: recarga sola una vez por versión; si sigue vieja, solo avisa.
+    let intentada = null;
+    try { intentada = sessionStorage.getItem('entreno.recarga'); } catch (e) { /* nada */ }
+    if ((tab === 'entreno' && !manual) || (intentada === String(v) && !manual)) {
+      if (!avisoVersion) { avisoVersion = true; mostrarAvisoVersion(); }
+      return;
+    }
+    try { sessionStorage.setItem('entreno.recarga', String(v)); } catch (e) { /* nada */ }
+    actualizarApp();
+  } catch (e) { if (manual) toast('Sin conexión'); }
+}
+async function actualizarApp() {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update();
+  } catch (e) { /* seguimos igual */ }
+  location.reload();
+}
+function mostrarAvisoVersion() {
+  const el = document.createElement('div');
+  el.className = 'aviso-version';
+  el.innerHTML = '<span>Hay una versión nueva de la app.</span><button type="button" class="secund chico" data-accion="actualizar">Actualizar</button>';
+  document.body.appendChild(el);
+}
+
 // Si la app quedó abierta de un día para el otro, refresca
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
@@ -2180,7 +2219,9 @@ document.addEventListener('visibilitychange', () => {
   if (tab === 'entreno') pedirWakeLock();
   if (iso(hoy()) !== fechaRender) render(tab === 'entreno' || tab === 'resumen' ? 'inicio' : tab);
   autoNube();
+  buscarVersion(false);
 });
+setTimeout(() => buscarVersion(false), 1500);
 setTimeout(autoNube, 3000);
 setInterval(autoNube, 10 * 6e4);
 

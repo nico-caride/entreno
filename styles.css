@@ -872,3 +872,5 @@ h3 { font-size: 17px; font-weight: 500; }
 .timer-lbl { margin-bottom: 8px; }
 .timer-btns button { min-height: 52px; padding: 0 18px; }
 .timer-bar { background: #1F1F23; }
+
+.aviso-version { position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 45; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 10px 10px 16px; border-radius: 18px; background: var(--sup2); border: 1px solid var(--ahora); font-size: 14px; max-width: 540px; margin: 0 auto; }
